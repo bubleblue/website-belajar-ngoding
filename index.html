@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pseudocodê & Golang — Belajar & Uji Algoritma </title>
+    <!-- Google Fonts for Apple-like clean typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="ios-theme-light">
+    <!-- Dynamic Island / Toast Notification -->
+    <div id="dynamic-island" class="dynamic-island">
+        <div class="island-icon" id="island-icon"><i data-lucide="sparkles"></i></div>
+        <div class="island-content">
+            <span class="island-title" id="island-title">Selamat Datang</span>
+            <span class="island-desc" id="island-desc">Pilih modul untuk mulai belajar pseudocode &amp; golang</span>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div class="app-layout">
+        <!-- iOS Navigation Bar -->
+        <header class="ios-navbar">
+            <div class="navbar-left">
+                <button class="icon-button mobile-menu-toggle" id="sidebar-toggle" title="Menu &amp; Materi" aria-label="Menu &amp; Materi">
+                    <i data-lucide="sidebar"></i>
+                </button>
+                <div class="app-brand">
+                    <div class="brand-logo">
+                        <i data-lucide="terminal"></i>
+                    </div>
+                    <div class="brand-info">
+                        <h1>Pseudocodê &amp; Go</h1>
+                        
+                    </div>
+                </div>
+            </div>
+
+            <!-- Segmented Control Switcher -->
+            <div class="navbar-center">
+                <div class="segmented-control" id="main-segmented-control">
+                    <button class="segment-btn active" data-tab="challenges">
+                        <i data-lucide="book-open"></i>
+                        <span>Tantangan</span>
+                    </button>
+                    <button class="segment-btn" data-tab="playground">
+                        <i data-lucide="code-2"></i>
+                        <span>Playground</span>
+                    </button>
+                    <button class="segment-btn" data-tab="saved-programs">
+                        <i data-lucide="folder-code"></i>
+                        <span>Program Saya</span>
+                        <span class="segment-counter" id="saved-programs-count">0</span>
+                    </button>
+                    <button class="segment-btn" data-tab="cheatsheet">
+                        <i data-lucide="file-text"></i>
+                        <span>Kamus Sintaks</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="navbar-right">
+                <button class="ios-account-pill" id="btn-auth-user" title="Akun &amp; Sinkronisasi Cloud" aria-label="Akun Cloud">
+                    <i data-lucide="cloud" id="auth-pill-icon"></i>
+                    <span id="auth-status-label">Masuk / Akun</span>
+                </button>
+                <button class="icon-button sound-toggle" id="btn-sound-toggle" title="Efek Suara Haptik" aria-label="Toggle Suara">
+                    <i data-lucide="volume-2" id="sound-icon"></i>
+                </button>
+                <button class="icon-button theme-toggle" id="btn-theme-toggle" title="Ganti Mode Gelap/Terang" aria-label="Ganti Tema">
+                    <i data-lucide="moon" id="theme-icon"></i>
+                </button>
+                <a href="#help" class="icon-button" id="btn-open-help" title="Panduan" aria-label="Panduan">
+                    <i data-lucide="help-circle"></i>
+                </a>
+            </div>
+        </header>
+
+        <!-- Main Body -->
+        <main class="app-body">
+            <!-- Sidebar: Navigation & Curriculum Challenge Selector -->
+            <aside class="ios-sidebar" id="app-sidebar">
+                <!-- Mobile Drawer Header with Close Button (Visible on screens <= 860px) -->
+                <div class="sidebar-mobile-header">
+                    <div class="sidebar-mobile-brand">
+                        <div class="brand-logo-sm">
+                            <i data-lucide="terminal"></i>
+                        </div>
+                        <span>Pseudocodê &amp; Go</span>
+                    </div>
+                    <button class="icon-button icon-button-sm sidebar-close-btn" id="sidebar-close-btn" title="Tutup Menu" aria-label="Tutup Menu">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <!-- Account Status in Sidebar (Quick access to Login/Sync) -->
+                <div class="sidebar-account-box" id="sidebar-account-box">
+                    <button class="sidebar-account-btn" id="sidebar-auth-btn" title="Kelola Akun &amp; Cloud Sync" aria-label="Kelola Akun">
+                        <div class="sidebar-account-avatar">
+                            <i data-lucide="user" id="sidebar-avatar-icon"></i>
+                        </div>
+                        <div class="sidebar-account-info">
+                            <span class="sidebar-account-name" id="sidebar-user-display">Belum Masuk Akun</span>
+                            <span class="sidebar-account-sub" id="sidebar-sync-status">Klik untuk sinkronisasi cloud</span>
+                        </div>
+                        <i data-lucide="chevron-right" class="sidebar-account-chevron"></i>
+                    </button>
+                </div>
+
+                <!-- Primary Navigation Section ("Menu Utama") -->
+                <div class="sidebar-main-nav">
+                    <div class="sidebar-section-header">
+                        <span class="caption">MENU UTAMA</span>
+                    </div>
+                    <div class="sidebar-nav-list">
+                        <button class="sidebar-nav-item active" data-tab="challenges">
+                            <div class="sidebar-nav-icon icon-challenges">
+                                <i data-lucide="book-open"></i>
+                            </div>
+                            <div class="sidebar-nav-content">
+                                <div class="sidebar-nav-title">Tantangan Algoritma</div>
+                                <div class="sidebar-nav-subtitle">9 Latihan &amp; Kurikulum Interaktif</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
+                        </button>
+
+                        <button class="sidebar-nav-item" data-tab="playground">
+                            <div class="sidebar-nav-icon icon-playground">
+                                <i data-lucide="code-2"></i>
+                            </div>
+                            <div class="sidebar-nav-content">
+                                <div class="sidebar-nav-title">Playground Bebas</div>
+                                <div class="sidebar-nav-subtitle">Eksperimen Pseudocode &amp; Go</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
+                        </button>
+
+                        <button class="sidebar-nav-item" data-tab="saved-programs">
+                            <div class="sidebar-nav-icon icon-saved">
+                                <i data-lucide="folder-code"></i>
+                            </div>
+                            <div class="sidebar-nav-content">
+                                <div class="sidebar-nav-title">Program Saya</div>
+                                <div class="sidebar-nav-subtitle">Koleksi berkas tersimpan</div>
+                            </div>
+                            <span class="segment-counter sidebar-counter" id="sidebar-saved-count">0</span>
+                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
+                        </button>
+
+                        <button class="sidebar-nav-item" data-tab="cheatsheet">
+                            <div class="sidebar-nav-icon icon-cheatsheet">
+                                <i data-lucide="file-text"></i>
+                            </div>
+                            <div class="sidebar-nav-content">
+                                <div class="sidebar-nav-title">Kamus Sintaks</div>
+                                <div class="sidebar-nav-subtitle">Panduan cepat &amp; aturan</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-nav-divider"></div>
+
+                <div class="sidebar-header">
+                    <div class="sidebar-title-group">
+                        <span class="caption">KURIKULUM</span>
+                        <h2>Daftar Materi</h2>
+                    </div>
+                    <div class="progress-pill">
+                        <span id="progress-count">0/9</span>
+                        <div class="progress-mini-bar">
+                            <div class="progress-mini-fill" id="progress-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="challenges-list" id="challenges-list-container">
+                    <!-- Populated by JS -->
+                </div>
+                <!-- Sidebar Resizer Handle -->
+                <div class="sidebar-resizer-handle" id="sidebar-resizer-handle" title="Tarik untuk mengubah lebar menu materi"></div>
+            </aside>
+
+            <!-- Floating Oval Toggle Pill & Edge Hover Hotspot -->
+            <div class="sidebar-edge-hotspot" id="sidebar-edge-hotspot">
+                <button class="sidebar-edge-pill" id="sidebar-edge-pill" title="Tutup / Buka Kurikulum Materi" aria-label="Toggle Kurikulum Materi">
+                    <i data-lucide="chevron-left" id="sidebar-edge-chevron"></i>
+                </button>
+            </div>
+
+            <!-- Backdrop for Mobile Sidebar -->
+            <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+            <!-- Main Interactive Work Area -->
+            <div class="workspace-area">
+                <!-- Top Section: Problem Description (Hidden in pure playground & saved programs) -->
+                <section class="card problem-card" id="problem-card">
+                    <div class="problem-card-header">
+                        <div class="problem-title-box">
+                            <div class="tag-row">
+                                <span class="ios-badge" id="problem-category">Kategori</span>
+                                <span class="ios-badge badge-difficulty" id="problem-difficulty">Mudah</span>
+                                <span class="ios-badge badge-status" id="problem-status">Belum Selesai</span>
+                            </div>
+                            <h2 id="problem-title">Memuat Tantangan...</h2>
+                        </div>
+                        <div class="problem-actions">
+                            <button class="ios-button ios-button-secondary ios-button-sm" id="btn-hint">
+                                <i data-lucide="lightbulb"></i>
+                                <span>Petunjuk</span>
+                            </button>
+                            <button class="ios-button ios-button-subtle ios-button-sm" id="btn-solution">
+                                <i data-lucide="key"></i>
+                                <span>Solusi</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="problem-body">
+                        <div class="problem-desc" id="problem-description"></div>
+                        
+                        <!-- Hint Drawer (Collapsible) -->
+                        <div class="collapsible-drawer" id="hint-drawer">
+                            <div class="drawer-header">
+                                <i data-lucide="sparkle"></i>
+                                <span>Petunjuk Pengerjaan:</span>
+                            </div>
+                            <div class="drawer-content" id="hint-text"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section: Saved Programs Manager -->
+                <section class="card saved-programs-card is-hidden" id="saved-programs-section">
+                    <div class="saved-programs-header">
+                        <div class="saved-header-left">
+                            <div class="card-title-group">
+                                <i data-lucide="folder-code"></i>
+                                <h2>Program Saya (Tersimpan)</h2>
+                            </div>
+                            <p class="saved-header-sub">Simpan, buka kembali, atau unduh algoritma buatanmu (Pseudocode &amp; Golang).</p>
+                        </div>
+                        <div class="saved-header-actions">
+                            <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-new-program">
+                                <i data-lucide="plus"></i>
+                                <span>Program Baru</span>
+                            </button>
+                            <button class="ios-button ios-button-secondary" id="btn-export-backup" title="Cadangkan Semua Program (JSON)">
+                                <i data-lucide="download"></i>
+                                <span>Cadangkan</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="saved-programs-toolbar">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="saved-search-input" placeholder="Cari nama program tersimpan...">
+                        </div>
+                        <span class="saved-stats" id="saved-stats-label">Menampilkan 0 program</span>
+                    </div>
+
+                    <div class="saved-programs-grid" id="saved-programs-grid">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </section>
+
+                <!-- Workspace Grid: Editor on left/top, Execution & Terminal on right/bottom -->
+                <div class="coding-grid" id="coding-grid-container">
+                    <!-- Code Editor Panel -->
+                    <section class="card editor-card">
+                        <div class="editor-header">
+                            <div class="file-tab-group">
+                                <div class="file-tab">
+                                    <span class="mac-dot red"></span>
+                                    <span class="mac-dot yellow"></span>
+                                    <span class="mac-dot green"></span>
+                                    <span class="file-name" id="current-file-label"><i data-lucide="file-code-2"></i> program.pseudo</span>
+                                </div>
+
+                                <!-- Language Switcher: Pseudocode <-> Golang -->
+                                <div class="lang-segmented-control" id="lang-switcher">
+                                    <button class="lang-pill active" id="btn-lang-pseudo" data-lang="pseudocode" title="Mode Bahasa Pseudocode">
+                                        <span>Pseudocode</span>
+                                    </button>
+                                    <button class="lang-pill" id="btn-lang-go" data-lang="golang" title="Mode Bahasa Go (Golang)">
+                                        <span class="go-tag">GO</span>
+                                        <span>Golang</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="editor-header-actions">
+                                <button class="btn-transpile-pill ios-btn-bounce mode-to-go" id="btn-transpile-code" title="Konversi Otomatis antara Pseudocode dan Golang">
+                                    <i data-lucide="arrow-right-left"></i>
+                                    <span id="transpile-btn-label">Ke Golang</span>
+                                    <span class="transpile-badge" id="transpile-badge-tag">GO</span>
+                                </button>
+                                <button class="btn-save-pill ios-btn-bounce" id="btn-save-program" title="Simpan Program Ini (⌘S / Ctrl+S)" aria-label="Simpan Program">
+                                    <i data-lucide="bookmark-plus"></i>
+                                    <span>Simpan</span>
+                                    <kbd class="kbd-badge" id="save-kbd-shortcut">⌘S</kbd>
+                                </button>
+                                <div class="header-divider"></div>
+                                <button class="icon-button-sm" id="btn-select-all" title="Pilih Semua Kode (Ctrl+A)" aria-label="Pilih Semua Kode">
+                                    <i data-lucide="check-square"></i>
+                                </button>
+                                <button class="icon-button-sm" id="btn-toggle-layout" title="Beralih Tata Letak: Berdampingan atau Tumpuk ke Bawah" aria-label="Ubah Tata Letak">
+                                    <i data-lucide="columns-2" id="layout-toggle-icon"></i>
+                                </button>
+                                <button class="icon-button-sm" id="btn-reset-code" title="Reset Kode" aria-label="Reset Kode">
+                                    <i data-lucide="rotate-ccw"></i>
+                                </button>
+                                <button class="icon-button-sm" id="btn-copy-code" title="Salin Kode" aria-label="Salin Kode">
+                                    <i data-lucide="copy"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Dedicated iOS QuickType / Snippet Accessory Bar -->
+                        <div class="editor-accessory-bar">
+                            <span class="accessory-label"><i data-lucide="sparkles"></i> Snippet:</span>
+                            <!-- Snippet Bar: Pseudocode (Default) -->
+                            <div class="snippet-bar" id="snippet-bar-pseudo">
+                                <button class="snippet-btn" data-insert="program #####&#10;kamus&#10;&#10;algoritma&#10;&#10;endprogram">program #####</button>
+                                <button class="snippet-btn" data-insert="input()">input()</button>
+                                <button class="snippet-btn" data-insert="output(&quot;&quot;)">output()</button>
+                                <button class="snippet-btn" data-insert=" &lt;- ">&lt;-</button>
+                                <button class="snippet-btn" data-insert="jika  maka&#10;&#10;lainnya&#10;&#10;selesai_jika">jika..maka</button>
+                                <button class="snippet-btn" data-insert="untuk i &lt;- 1 sampai 10 lakukan&#10;&#10;selesai_untuk">untuk..lakukan</button>
+                                <button class="snippet-btn" data-insert="selama  lakukan&#10;&#10;selesai_selama">selama..lakukan</button>
+                                <button class="snippet-btn" data-insert="endprogram">endprogram</button>
+                                <button class="snippet-btn" data-insert=" mod ">mod</button>
+                            </div>
+
+                            <!-- Snippet Bar: Golang (Visible in Go mode) -->
+                            <div class="snippet-bar is-hidden" id="snippet-bar-go">
+                                <button class="snippet-btn" data-insert="package main&#10;&#10;import &quot;fmt&quot;&#10;&#10;func main() {&#10;&#9;&#10;}">package main</button>
+                                <button class="snippet-btn" data-insert="fmt.Println(&quot;&quot;)">fmt.Println()</button>
+                                <button class="snippet-btn" data-insert="fmt.Scan(&amp;)">fmt.Scan()</button>
+                                <button class="snippet-btn" data-insert=" := ">:=</button>
+                                <button class="snippet-btn" data-insert="var  int">var .. int</button>
+                                <button class="snippet-btn" data-insert="var  float64">var .. float64</button>
+                                <button class="snippet-btn" data-insert="for i := 1; i &lt;= 10; i++ {&#10;&#9;&#10;}">for loop</button>
+                                <button class="snippet-btn" data-insert="if  {&#10;&#9;&#10;} else {&#10;&#9;&#10;}">if..else</button>
+                                <button class="snippet-btn" data-insert="fmt.Printf(&quot;%.2f\n&quot;, )">fmt.Printf()</button>
+                                <button class="snippet-btn" data-insert="math.Pi">math.Pi</button>
+                            </div>
+                        </div>
+
+                        <!-- Editor Wrapper with Line Numbers -->
+                        <div class="code-editor-container" id="editor-container">
+                            <div class="line-numbers" id="line-numbers">1</div>
+                            <div class="textarea-scroller" id="textarea-scroller">
+                                <div class="highlight-line-layer" id="active-line-indicator"></div>
+                                <pre class="code-highlight-layer" id="code-highlight" aria-hidden="true"><code id="code-highlight-content"></code></pre>
+                                <textarea id="code-editor" spellcheck="false" placeholder="Tulis program kamu di sini..."></textarea>
+                                
+                                <!-- Intelligent Autocomplete Popup -->
+                                <div class="editor-autocomplete is-hidden" id="editor-autocomplete">
+                                    <div class="autocomplete-list" id="autocomplete-list"></div>
+                                    <div class="autocomplete-footer">
+                                        <span>Pilih <kbd>Tab</kbd> / <kbd>↵</kbd></span>
+                                        <span>Batal <kbd>Esc</kbd></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="editor-height-resizer" id="editor-height-resizer" title="Tarik ke bawah / atas untuk mengatur tinggi editor">
+                                <span class="resizer-handle-pill"></span>
+                            </div>
+                        </div>
+
+                        <!-- Action Bar Below Editor -->
+                        <div class="editor-action-bar">
+                            <div class="action-left">
+                                <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-check-solution">
+                                    <i data-lucide="check-circle-2"></i>
+                                    <span>Periksa Jawaban</span>
+                                </button>
+                                <button class="ios-button ios-button-success ios-btn-bounce" id="btn-run-fast">
+                                    <i data-lucide="play"></i>
+                                    <span>Jalankan</span>
+                                </button>
+                                <button class="ios-button ios-button-tinted ios-btn-bounce" id="btn-run-terminal" title="Kompilasi dan Jalankan langsung di Web Terminal">
+                                    <i data-lucide="terminal"></i>
+                                    <span>Jalankan di Terminal</span>
+                                </button>
+                            </div>
+                            <div class="action-right">
+                                <div class="step-controls" id="step-controls-group">
+                                    <button class="ios-button ios-button-subtle ios-btn-bounce" id="btn-start-step">
+                                        <i data-lucide="footprints"></i>
+                                        <span>Langkah demi Langkah</span>
+                                    </button>
+                                    <button class="ios-button ios-button-tinted is-hidden" id="btn-next-step">
+                                        <i data-lucide="step-forward"></i>
+                                        <span>Lanjut (Step)</span>
+                                    </button>
+                                    <button class="ios-button ios-button-subtle is-hidden" id="btn-stop-step" title="Hentikan Debug">
+                                        <i data-lucide="square"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Vertical Splitter Resizer Gutter between Editor & Execution Panel -->
+                    <div class="grid-resizer-gutter" id="grid-resizer-gutter" title="Tarik ke samping untuk mengatur lebar editor, atau geser panel kanan ke bawah">
+                        <div class="gutter-handle-pill"></div>
+                    </div>
+
+                    <!-- Inspection & Execution Panel -->
+                    <div class="execution-column" id="execution-column">
+                        <!-- Interactive In-Website macOS Terminal (Visible only in Golang mode) -->
+                        <section class="card web-terminal-card terminal-slide-closed" id="web-terminal-card">
+                            <div class="terminal-header">
+                                <div class="card-title-group">
+                                    <div class="mac-window-controls">
+                                        <span class="mac-dot red" id="term-dot-red" title="Bersihkan Layar"></span>
+                                        <span class="mac-dot yellow" id="term-dot-yellow" title="Toggle Ukuran"></span>
+                                        <span class="mac-dot green" id="term-dot-green" title="Buka Penuh"></span>
+                                    </div>
+                                    <h3 class="terminal-title"><i data-lucide="terminal"></i> terminal — zsh (go run main.go)</h3>
+                                </div>
+                                <div class="terminal-actions">
+                                    <button class="term-quick-btn" id="btn-quick-gorun" title="Ketik &amp; Jalankan 'go run main.go'">
+                                        <i data-lucide="play"></i> go run
+                                    </button>
+                                    <button class="icon-button-sm" id="btn-clear-terminal" title="Bersihkan Layar Terminal">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="web-terminal-body" id="web-terminal-container">
+                                <div class="terminal-lines" id="terminal-lines">
+                                    <!-- Dynamic colored lines -->
+                                </div>
+                                <div class="terminal-prompt-line">
+                                    <span class="term-prompt" id="term-prompt-label">gopher@macbook:~/workspace$&nbsp;</span>
+                                    <input type="text" id="term-command-input" class="term-input" spellcheck="false" autocomplete="off" placeholder="ketik perintah shell / input di sini...">
+                                </div>
+                            </div>
+                            <div class="terminal-height-resizer" id="terminal-height-resizer" title="Tarik ke bawah / atas untuk mengatur tinggi terminal">
+                                <span class="resizer-handle-pill"></span>
+                            </div>
+                        </section>
+
+                        <!-- Standard Clean Output Console (Visible in Pseudocode mode) -->
+                        <section class="card terminal-card pseudo-console-card" id="pseudo-console-card">
+                            <div class="terminal-header">
+                                <div class="card-title-group">
+                                    <i data-lucide="terminal"></i>
+                                    <h3>Konsol Output (Pseudocode)</h3>
+                                </div>
+                                <div class="terminal-actions">
+                                    <button class="icon-button-sm" id="btn-clear-console" title="Bersihkan Layar">
+                                        <i data-lucide="trash-2"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="terminal-body" id="console-output">
+                                <div class="console-placeholder">Keluaran (output) program pseudocode akan tampil di sini...</div>
+                            </div>
+                            <div class="terminal-height-resizer" id="console-height-resizer" title="Tarik ke bawah / atas untuk mengatur tinggi konsol">
+                                <span class="resizer-handle-pill"></span>
+                            </div>
+                        </section>
+
+                        <!-- Step Execution Variable Watch Window -->
+                        <section class="card watch-card" id="watch-card">
+                            <div class="watch-header">
+                                <div class="card-title-group">
+                                    <i data-lucide="cpu"></i>
+                                    <h3>Memori Variabel (Live Watch)</h3>
+                                </div>
+                                <span class="step-indicator" id="step-status-tag">Siap</span>
+                            </div>
+                            <div class="watch-body">
+                                <div class="var-table-container">
+                                    <table class="var-table" id="var-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Variabel</th>
+                                                <th>Nilai Saat Ini</th>
+                                                <th>Tipe</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="var-table-body">
+                                            <tr class="empty-row">
+                                                <td colspan="3">Jalankan program atau mode per langkah untuk memantau variabel</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Test Cases Verification Results (For Challenges) -->
+                        <section class="card testcases-card" id="testcases-card">
+                            <div class="testcases-header">
+                                <div class="card-title-group">
+                                    <i data-lucide="shield-check"></i>
+                                    <h3>Pengujian Kasus Uji (Test Cases)</h3>
+                                </div>
+                                <div class="test-score-badge" id="test-score-badge">0 / 0 Lolos</div>
+                            </div>
+                            <div class="testcases-body" id="testcases-list">
+                                <div class="testcases-placeholder">Tekan "Periksa Jawaban" untuk menguji kodemu terhadap berbagai skenario input.</div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Interactive iOS Dialog: Input Prompt Modal (Fallback) -->
+    <div class="ios-modal-overlay" id="input-modal-overlay">
+        <div class="ios-alert-dialog">
+            <div class="alert-header">
+                <div class="alert-icon">
+                    <i data-lucide="keyboard"></i>
+                </div>
+                <h3 class="alert-title">Masukan Diperlukan</h3>
+                <p class="alert-desc" id="input-prompt-label">Program meminta nilai untuk variabel:</p>
+            </div>
+            <div class="alert-body">
+                <input type="text" id="interactive-user-input" class="ios-input-field" placeholder="Masukkan nilai (angka atau teks)..." autocomplete="off">
+            </div>
+            <div class="alert-footer">
+                <button class="ios-alert-btn cancel" id="btn-input-cancel">Batal</button>
+                <button class="ios-alert-btn submit" id="btn-input-submit">Kirim Masukan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive iOS Dialog: Save Program Modal -->
+    <div class="ios-modal-overlay" id="save-modal-overlay">
+        <div class="ios-alert-dialog save-dialog">
+            <div class="alert-header">
+                <div class="alert-icon save-alert-icon">
+                    <i data-lucide="bookmark-plus"></i>
+                </div>
+                <h3 class="alert-title">Simpan Program</h3>
+                <div class="save-lang-badge" id="save-modal-lang-badge">
+                    <span class="save-lang-dot"></span>
+                    <span id="save-modal-lang-text">Pseudocode (.pseudo)</span>
+                </div>
+                <p class="alert-desc">Simpan kodemu ke dalam daftar program agar tidak hilang dan bisa dibuka kapan saja.</p>
+            </div>
+            <div class="alert-body">
+                <label class="ios-input-label" for="save-program-title">Nama File Program:</label>
+                <div class="save-input-group">
+                    <i data-lucide="file-code-2" class="save-input-leading-icon"></i>
+                    <input type="text" id="save-program-title" class="ios-input-field save-input-field" placeholder="contoh: hitung_luas_persegi" autocomplete="off" spellcheck="false">
+                    <span class="save-input-ext-tag" id="save-modal-ext">.pseudo</span>
+                </div>
+                <div class="save-hint-box" id="save-detected-hint"></div>
+                
+                <div class="save-chips-wrapper">
+                    <span class="save-chips-label"><i data-lucide="sparkles"></i> Saran Cepat:</span>
+                    <div class="save-chips-list" id="save-chips-list">
+                        <!-- Populated dynamically via JS -->
+                    </div>
+                </div>
+            </div>
+            <div class="alert-footer save-modal-footer">
+                <button class="ios-alert-btn cancel" id="btn-save-cancel">Batal</button>
+                <button class="ios-alert-btn submit save-confirm-btn" id="btn-save-confirm">
+                    <i data-lucide="check"></i>
+                    <span>Simpan Program</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- iOS Bottom Sheet: Syntax Cheatsheet Modal (Pseudocode & Golang) -->
+    <div class="ios-sheet-overlay" id="cheatsheet-overlay">
+        <div class="ios-sheet-card">
+            <div class="sheet-grabber"></div>
+            <div class="sheet-header">
+                <div class="sheet-title-group">
+                    <i data-lucide="file-text"></i>
+                    <h2>Kamus Sintaks Pseudocode &amp; Golang</h2>
+                </div>
+                <button class="icon-button-sm" id="btn-close-cheatsheet">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="sheet-body">
+                <div class="cheatsheet-grid">
+                    <!-- Section 1: Struktur Dasar Pseudocode -->
+                    <div class="cheat-item">
+                        <h4>1. Struktur Dasar Pseudocode</h4>
+                        <pre><code>program #####
+kamus
+    a, b : integer
+    nama : string
+algoritma
+    // instruksi program ditulis di sini
+endprogram</code></pre>
+                    </div>
+
+                    <!-- Section 2: Struktur Dasar Golang -->
+                    <div class="cheat-item">
+                        <h4>2. Struktur Dasar Golang (Go)</h4>
+                        <pre><code>package main
+
+import "fmt"
+
+func main() {
+    var a, b int
+    var nama string
+    // instruksi program di sini
+}</code></pre>
+                    </div>
+
+                    <!-- Section 3: Input & Output Pseudocode -->
+                    <div class="cheat-item">
+                        <h4>3. I/O Pseudocode (input &amp; output)</h4>
+                        <pre><code>// menerima masukan:
+input(nama)
+input(a, b)
+
+// menampilkan keluaran:
+output("halo dunia")
+output("nilai: ", a)</code></pre>
+                    </div>
+
+                    <!-- Section 4: Input & Output Golang -->
+                    <div class="cheat-item">
+                        <h4>4. I/O Golang (fmt.Scan &amp; fmt.Println)</h4>
+                        <pre><code>// menerima masukan dari terminal:
+fmt.Scan(&amp;nama)
+fmt.Scan(&amp;a, &amp;b)
+
+// menampilkan keluaran ke terminal:
+fmt.Println("halo dunia")
+fmt.Printf("nilai a: %d\n", a)</code></pre>
+                    </div>
+
+                    <!-- Section 5: Percabangan -->
+                    <div class="cheat-item">
+                        <h4>5. Percabangan (Pseudocode vs Go)</h4>
+                        <pre><code>// Pseudocode:
+jika nilai &gt;= 75 maka
+    output("lulus")
+lainnya
+    output("remidi")
+selesai_jika
+
+// Golang:
+if nilai &gt;= 75 {
+    fmt.Println("lulus")
+} else {
+    fmt.Println("remidi")
+}</code></pre>
+                    </div>
+
+                    <!-- Section 6: Perulangan -->
+                    <div class="cheat-item">
+                        <h4>6. Perulangan Loop (Pseudocode vs Go)</h4>
+                        <pre><code>// Pseudocode:
+untuk i &lt;- 1 sampai 5 lakukan
+    output("angka: ", i)
+selesai_untuk
+
+// Golang:
+for i := 1; i &lt;= 5; i++ {
+    fmt.Println("angka:", i)
+}</code></pre>
+                    </div>
+
+                    <!-- Section 7: Perulangan Kondisi (While) -->
+                    <div class="cheat-item">
+                        <h4>7. While Loop (selama ... lakukan)</h4>
+                        <pre><code>// Pseudocode:
+selama i &lt;= 5 lakukan
+    output(i)
+    i &lt;- i + 1
+selesai_selama
+
+// Golang:
+for i &lt;= 5 {
+    fmt.Println(i)
+    i++
+}</code></pre>
+                    </div>
+
+                    <!-- Section 8: Contoh Lengkap Golang -->
+                    <div class="cheat-item">
+                        <h4>8. Contoh Program Golang Siap Dijalankan</h4>
+                        <pre><code>package main
+
+import "fmt"
+
+func main() {
+    var p, l int
+    fmt.Println("=== Hitung Luas ===")
+    fmt.Scan(&amp;p)
+    fmt.Scan(&amp;l)
+    luas := p * l
+    fmt.Println("Luas Persegi Panjang:", luas)
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <button class="ios-button ios-button-primary" id="btn-cheatsheet-done">Tutup Kamus</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Account & Cloud Sync Modal Sheet (Apple iOS Style) -->
+    <div class="ios-sheet-overlay" id="auth-overlay">
+        <div class="ios-sheet-card auth-sheet-card" id="auth-sheet-card">
+            <div class="sheet-handle"></div>
+            <div class="sheet-header">
+                <div class="sheet-title-group">
+                    <span class="caption">SINKRONISASI CLOUD</span>
+                    <h3 id="auth-modal-title">Akun &amp; Database</h3>
+                </div>
+                <button class="sheet-close-btn" id="btn-close-auth" aria-label="Tutup">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="auth-sheet-body">
+                <!-- Status Banner -->
+                <div class="cloud-status-banner" id="cloud-status-banner">
+                    <div class="status-indicator-dot" id="cloud-status-dot"></div>
+                    <span id="cloud-status-text">Memeriksa database cloud...</span>
+                    <button class="btn-text-link" id="btn-toggle-config-view" type="button">Pengaturan DB</button>
+                </div>
+
+                <!-- View 1: When User is Logged In -->
+                <div class="auth-logged-in-view is-hidden" id="auth-logged-in-view">
+                    <div class="user-profile-card">
+                        <div class="user-profile-avatar">
+                            <i data-lucide="user-check"></i>
+                        </div>
+                        <div class="user-profile-details">
+                            <h4 id="logged-username-display">@username</h4>
+                            <p class="user-profile-sub">Program Anda otomatis tersinkronisasi antar perangkat</p>
+                        </div>
+                    </div>
+
+                    <div class="auth-action-stack">
+                        <button class="ios-button ios-button-primary" id="btn-manual-sync" type="button">
+                            <i data-lucide="refresh-cw"></i>
+                            <span>Sinkronkan Program Sekarang</span>
+                        </button>
+                        <button class="ios-button ios-button-secondary" id="btn-auth-logout" type="button">
+                            <i data-lucide="log-out"></i>
+                            <span>Keluar Akun (Logout)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- View 2: When User is NOT Logged In (Form Login / Register) -->
+                <div class="auth-guest-view" id="auth-guest-view">
+                    <!-- Segmented Switcher for Login / Register -->
+                    <div class="auth-segmented-switcher">
+                        <button class="auth-seg-btn active" id="btn-tab-login" data-auth-tab="login" type="button">Masuk Akun</button>
+                        <button class="auth-seg-btn" id="btn-tab-register" data-auth-tab="register" type="button">Daftar Akun Baru</button>
+                    </div>
+
+                    <form class="auth-form" id="auth-form" autocomplete="off">
+                        <div class="auth-field-group">
+                            <label for="auth-input-username">Username (Tanpa Email)</label>
+                            <div class="input-with-prefix">
+                                <span class="input-prefix">@</span>
+                                <input type="text" id="auth-input-username" class="ios-input" placeholder="contoh: alief" required autocomplete="username" spellcheck="false" autocapitalize="none">
+                            </div>
+                            <span class="auth-field-hint">Hanya huruf, angka, dan garis bawah (_).</span>
+                        </div>
+
+                        <div class="auth-field-group">
+                            <label for="auth-input-password">Password</label>
+                            <div class="input-with-action">
+                                <input type="password" id="auth-input-password" class="ios-input" placeholder="Masukkan password" required autocomplete="current-password">
+                                <button type="button" class="btn-toggle-pass" id="btn-toggle-password" title="Lihat Password" aria-label="Lihat Password">
+                                    <i data-lucide="eye" id="icon-toggle-pass"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="auth-field-group is-hidden" id="group-confirm-password">
+                            <label for="auth-input-confirm-password">Konfirmasi Password</label>
+                            <input type="password" id="auth-input-confirm-password" class="ios-input" placeholder="Ulangi password Anda" autocomplete="new-password">
+                        </div>
+
+                        <div class="auth-error-box is-hidden" id="auth-error-box">
+                            <i data-lucide="alert-circle"></i>
+                            <span id="auth-error-text">Pesan error</span>
+                        </div>
+
+                        <button type="submit" class="ios-button ios-button-primary auth-submit-btn" id="btn-auth-submit">
+                            <span id="auth-submit-label">Masuk ke Akun</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- View 3: Firebase Config Editor (Collapsible) -->
+                <div class="auth-config-drawer is-hidden" id="auth-config-drawer">
+                    <div class="config-drawer-header">
+                        <h4>Konfigurasi Firebase Firestore</h4>
+                        <p class="config-desc">Tempelkan <code>firebaseConfig</code> dari Firebase Console untuk menghubungkan database online Anda.</p>
+                    </div>
+                    <div class="auth-field-group">
+                        <textarea id="firebase-config-input" class="ios-input config-textarea" rows="7" placeholder='Paste config di sini, contoh:&#10;{&#10;  apiKey: "...",&#10;  projectId: "..."&#10;}'></textarea>
+                    </div>
+                    <div class="config-actions">
+                        <button type="button" class="ios-button ios-button-primary" id="btn-save-firebase-config">Simpan &amp; Hubungkan</button>
+                        <button type="button" class="ios-button ios-button-secondary" id="btn-close-config-drawer">Tutup</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Firebase SDK (Compat v10 for direct browser use) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-config.js"></script>
+    <script src="js/cloud-db.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/interpreter.js"></script>
+    <script src="js/go-interpreter.js"></script>
+    <script src="js/terminal.js"></script>
+    <script src="js/challenges.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
