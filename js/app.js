@@ -2450,6 +2450,9 @@ endprogram`;
         }
 
         // 2. Navbar & Sidebar Account Button
+        const pillIconWrap = document.getElementById('auth-pill-icon-wrap');
+        const sidebarAvatarWrap = document.getElementById('sidebar-avatar-wrap');
+
         if (currentUser) {
             if (elements.btnAuthUser) {
                 elements.btnAuthUser.classList.add('logged-in');
@@ -2457,8 +2460,8 @@ endprogram`;
             if (elements.authStatusLabel) {
                 elements.authStatusLabel.textContent = `@${currentUser}`;
             }
-            if (elements.authPillIcon) {
-                elements.authPillIcon.setAttribute('data-lucide', 'cloud-check');
+            if (pillIconWrap) {
+                pillIconWrap.innerHTML = '<i data-lucide="user-check"></i>';
             }
 
             if (elements.sidebarAuthBtn) {
@@ -2469,6 +2472,9 @@ endprogram`;
             }
             if (elements.sidebarSyncStatus) {
                 elements.sidebarSyncStatus.textContent = '● Cloud Aktif & Tersinkron';
+            }
+            if (sidebarAvatarWrap) {
+                sidebarAvatarWrap.innerHTML = '<i data-lucide="user-check"></i>';
             }
 
             // Modal views
@@ -2482,8 +2488,8 @@ endprogram`;
             if (elements.authStatusLabel) {
                 elements.authStatusLabel.textContent = 'Masuk / Akun';
             }
-            if (elements.authPillIcon) {
-                elements.authPillIcon.setAttribute('data-lucide', 'cloud');
+            if (pillIconWrap) {
+                pillIconWrap.innerHTML = '<i data-lucide="cloud"></i>';
             }
 
             if (elements.sidebarAuthBtn) {
@@ -2495,46 +2501,87 @@ endprogram`;
             if (elements.sidebarSyncStatus) {
                 elements.sidebarSyncStatus.textContent = 'Klik untuk sinkronisasi cloud';
             }
+            if (sidebarAvatarWrap) {
+                sidebarAvatarWrap.innerHTML = '<i data-lucide="user"></i>';
+            }
 
             // Modal views
             if (elements.authLoggedInView) elements.authLoggedInView.classList.add('is-hidden');
             if (elements.authGuestView) elements.authGuestView.classList.remove('is-hidden');
         }
 
-        if (window.lucide) window.lucide.createIcons();
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+            window.lucide.createIcons();
+        }
     }
 
     function openAuthModal() {
+        if (!elements.authOverlay) {
+            elements.authOverlay = document.getElementById('auth-overlay');
+        }
         if (!elements.authOverlay) return;
-        elements.authOverlay.classList.add('active');
+        elements.authOverlay.style.display = 'flex';
+        requestAnimationFrame(() => {
+            if (elements.authOverlay) {
+                elements.authOverlay.classList.add('active');
+            }
+        });
         if (elements.authErrorBox) elements.authErrorBox.classList.add('is-hidden');
         if (elements.authConfigDrawer) elements.authConfigDrawer.classList.add('is-hidden');
         updateAuthUI();
     }
 
     function closeAuthModal() {
+        if (!elements.authOverlay) {
+            elements.authOverlay = document.getElementById('auth-overlay');
+        }
         if (!elements.authOverlay) return;
         elements.authOverlay.classList.remove('active');
+        setTimeout(() => {
+            if (elements.authOverlay && !elements.authOverlay.classList.contains('active')) {
+                elements.authOverlay.style.display = 'none';
+            }
+        }, 300);
         if (elements.authErrorBox) elements.authErrorBox.classList.add('is-hidden');
     }
 
+    // Robust Click Listeners: Direct Binding + Event Delegation
     if (elements.btnAuthUser) {
-        elements.btnAuthUser.addEventListener('click', () => {
+        elements.btnAuthUser.addEventListener('click', (e) => {
+            e.preventDefault();
             if (window.soundManager) window.soundManager.playTap();
             openAuthModal();
         });
     }
 
     if (elements.sidebarAuthBtn) {
-        elements.sidebarAuthBtn.addEventListener('click', () => {
+        elements.sidebarAuthBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             if (window.soundManager) window.soundManager.playTap();
             closeSidebar();
             openAuthModal();
         });
     }
 
+    // Delegated click handler on document to guarantee clicks never miss
+    document.addEventListener('click', (e) => {
+        const trigger = e.target.closest('#btn-auth-user, #sidebar-auth-btn');
+        if (trigger) {
+            e.preventDefault();
+            if (window.soundManager) window.soundManager.playTap();
+            if (trigger.id === 'sidebar-auth-btn') {
+                closeSidebar();
+            }
+            openAuthModal();
+        }
+    });
+
     if (elements.btnCloseAuth) {
-        elements.btnCloseAuth.addEventListener('click', closeAuthModal);
+        elements.btnCloseAuth.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window.soundManager) window.soundManager.playTap();
+            closeAuthModal();
+        });
     }
 
     if (elements.authOverlay) {
@@ -2544,6 +2591,18 @@ endprogram`;
             }
         });
     }
+
+    // Escape key closes open modals
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (elements.authOverlay && elements.authOverlay.classList.contains('active')) {
+                closeAuthModal();
+            }
+            if (elements.cheatsheetOverlay && elements.cheatsheetOverlay.classList.contains('active')) {
+                closeCheatsheet();
+            }
+        }
+    });
 
     // Toggle Login / Register Tabs
     function setAuthTab(tab) {
@@ -2680,7 +2739,7 @@ endprogram`;
                     updateAuthUI();
                     renderSavedProgramsList();
                     closeAuthModal();
-                    showNotification('Berhasil Masuk!', `Selamat datang kembali @${res.username}! Program cloud disinkronkan`, 'success', 'cloud-check');
+                    showNotification('Berhasil Masuk!', `Selamat datang kembali @${res.username}! Program cloud disinkronkan`, 'success', 'user-check');
                     if (window.soundManager) window.soundManager.playSuccess();
                 }
             } catch (err) {

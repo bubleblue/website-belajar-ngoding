@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=20261030-2">
 </head>
 <body class="ios-theme-light">
     <!-- Dynamic Island / Toast Notification -->
@@ -68,7 +68,9 @@
 
             <div class="navbar-right">
                 <button class="ios-account-pill" id="btn-auth-user" title="Akun &amp; Sinkronisasi Cloud" aria-label="Akun Cloud">
-                    <i data-lucide="cloud" id="auth-pill-icon"></i>
+                    <span class="auth-pill-icon-wrap" id="auth-pill-icon-wrap">
+                        <i data-lucide="cloud" id="auth-pill-icon"></i>
+                    </span>
                     <span id="auth-status-label">Masuk / Akun</span>
                 </button>
                 <button class="icon-button sound-toggle" id="btn-sound-toggle" title="Efek Suara Haptik" aria-label="Toggle Suara">
@@ -102,15 +104,15 @@
 
                 <!-- Account Status in Sidebar (Quick access to Login/Sync) -->
                 <div class="sidebar-account-box" id="sidebar-account-box">
-                    <button class="sidebar-account-btn" id="sidebar-auth-btn" title="Kelola Akun &amp; Cloud Sync" aria-label="Kelola Akun">
-                        <div class="sidebar-account-avatar">
+                    <button class="sidebar-nav-item sidebar-account-item sidebar-account-btn" id="sidebar-auth-btn" title="Kelola Akun &amp; Cloud Sync" aria-label="Kelola Akun">
+                        <div class="sidebar-nav-icon icon-account sidebar-account-avatar" id="sidebar-avatar-wrap">
                             <i data-lucide="user" id="sidebar-avatar-icon"></i>
                         </div>
-                        <div class="sidebar-account-info">
-                            <span class="sidebar-account-name" id="sidebar-user-display">Belum Masuk Akun</span>
-                            <span class="sidebar-account-sub" id="sidebar-sync-status">Klik untuk sinkronisasi cloud</span>
+                        <div class="sidebar-nav-content sidebar-account-info">
+                            <div class="sidebar-nav-title sidebar-account-name" id="sidebar-user-display">Belum Masuk Akun</div>
+                            <div class="sidebar-nav-subtitle sidebar-account-sub" id="sidebar-sync-status">Klik untuk sinkronisasi cloud</div>
                         </div>
-                        <i data-lucide="chevron-right" class="sidebar-account-chevron"></i>
+                        <i data-lucide="chevron-right" class="sidebar-nav-chevron sidebar-account-chevron"></i>
                     </button>
                 </div>
 
@@ -831,13 +833,13 @@ func main() {
     <!-- Firebase SDK (Compat v10 for direct browser use) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js"></script>
-    <script src="js/cloud-db.js"></script>
-    <script src="js/audio.js"></script>
-    <script src="js/interpreter.js"></script>
-    <script src="js/go-interpreter.js"></script>
-    <script src="js/terminal.js"></script>
-    <script src="js/challenges.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/firebase-config.js?v=20261030-2"></script>
+    <script src="js/cloud-db.js?v=20261030-2"></script>
+    <script src="js/audio.js?v=20261030-2"></script>
+    <script src="js/interpreter.js?v=20261030-2"></script>
+    <script src="js/go-interpreter.js?v=20261030-2"></script>
+    <script src="js/terminal.js?v=20261030-2"></script>
+    <script src="js/challenges.js?v=20261030-2"></script>
+    <script src="js/app.js?v=20261030-2"></script>
 </body>
 </html>
