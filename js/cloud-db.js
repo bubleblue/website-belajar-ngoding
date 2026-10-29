@@ -141,6 +141,14 @@
                 firebase.initializeApp(config);
             }
             db = firebase.firestore();
+            try {
+                db.settings({
+                    experimentalForceLongPolling: true,
+                    merge: true
+                });
+            } catch (settingErr) {
+                // Settings can only be applied once on init
+            }
             isInitialized = true;
             console.log('✓ Cloud Firestore terhubung untuk project:', config.projectId);
             return true;
@@ -148,6 +156,17 @@
             console.error('Gagal menginisialisasi Firebase Firestore:', e);
             return false;
         }
+    }
+
+    function handleFirestoreError(err) {
+        const msg = (err && err.message) ? err.message : String(err);
+        if (msg.includes('client is offline') || msg.includes('unavailable') || msg.includes('SERVICE_DISABLED') || msg.includes('has not been used')) {
+            return new Error('Database Cloud Firestore belum diaktifkan di project Firebase Anda. Buka console.firebase.google.com -> Firestore Database -> Klik "Create Database" (Mulai dalam mode uji).');
+        }
+        if (msg.includes('Missing or insufficient permissions') || msg.includes('permission-denied') || msg.includes('PERMISSION_DENIED')) {
+            return new Error('Izin Firestore ditolak (Rules). Pastikan Rules di Firebase Console diatur ke "allow read, write: if true;".');
+        }
+        return err;
     }
 
     const CloudDB = {
@@ -177,7 +196,7 @@
         // Buat Akun Baru (Hanya butuh Username & Password)
         register: async function(username, password) {
             if (!initFirebase()) {
-                throw new Error('Database Cloud Firebase belum dikonfigurasi. Silakan masukkan konfigurasi Firebase terlebih dahulu.');
+                throw new Error('Database Cloud Firebase belum dikonfigurasi. Silakan periksa konfigurasi Firebase.');
             }
 
             const cleanUser = username.trim().toLowerCase();
@@ -191,37 +210,41 @@
                 throw new Error('Password minimal 4 karakter.');
             }
 
-            const userRef = db.collection('users').doc(cleanUser);
-            const userDoc = await userRef.get();
-
-            if (userDoc.exists) {
-                throw new Error(`Username "@${cleanUser}" sudah terdaftar. Silakan pilih username lain atau klik Masuk.`);
-            }
-
-            const passHash = await hashPassword(cleanUser, password);
-
-            // Simpan info user (hanya username & hash password)
-            await userRef.set({
-                username: cleanUser,
-                passwordHash: passHash,
-                createdAt: new Date().toISOString()
-            });
-
-            // Ambil program lokal saat ini untuk di-upload pertama kali
-            let localPrograms = [];
             try {
-                const stored = localStorage.getItem('pseudocode_saved_programs');
-                if (stored) localPrograms = JSON.parse(stored);
-            } catch (e) {}
+                const userRef = db.collection('users').doc(cleanUser);
+                const userDoc = await userRef.get();
 
-            await db.collection('user_programs').doc(cleanUser).set({
-                username: cleanUser,
-                programs: localPrograms,
-                updatedAt: Date.now()
-            });
+                if (userDoc.exists) {
+                    throw new Error(`Username "@${cleanUser}" sudah terdaftar. Silakan pilih username lain atau klik Masuk.`);
+                }
 
-            localStorage.setItem('pseudocode_auth_username', cleanUser);
-            return { username: cleanUser, programs: localPrograms };
+                const passHash = await hashPassword(cleanUser, password);
+
+                // Simpan info user (hanya username & hash password)
+                await userRef.set({
+                    username: cleanUser,
+                    passwordHash: passHash,
+                    createdAt: new Date().toISOString()
+                });
+
+                // Ambil program lokal saat ini untuk di-upload pertama kali
+                let localPrograms = [];
+                try {
+                    const stored = localStorage.getItem('pseudocode_saved_programs');
+                    if (stored) localPrograms = JSON.parse(stored);
+                } catch (e) {}
+
+                await db.collection('user_programs').doc(cleanUser).set({
+                    username: cleanUser,
+                    programs: localPrograms,
+                    updatedAt: Date.now()
+                });
+
+                localStorage.setItem('pseudocode_auth_username', cleanUser);
+                return { username: cleanUser, programs: localPrograms };
+            } catch (err) {
+                throw handleFirestoreError(err);
+            }
         },
 
         // Masuk ke Akun yang Sudah Ada
@@ -238,33 +261,37 @@
                 throw new Error('Harap isi password.');
             }
 
-            const userRef = db.collection('users').doc(cleanUser);
-            const userDoc = await userRef.get();
+            try {
+                const userRef = db.collection('users').doc(cleanUser);
+                const userDoc = await userRef.get();
 
-            if (!userDoc.exists) {
-                throw new Error(`Username "@${cleanUser}" tidak ditemukan. Silakan klik "Daftar Akun Baru".`);
+                if (!userDoc.exists) {
+                    throw new Error(`Username "@${cleanUser}" tidak ditemukan. Silakan klik "Daftar Akun Baru".`);
+                }
+
+                const userData = userDoc.data();
+                const passHash = await hashPassword(cleanUser, password);
+
+                if (userData.passwordHash !== passHash) {
+                    throw new Error('Password salah. Silakan coba lagi.');
+                }
+
+                // Ambil semua program pengguna dari Cloud
+                let cloudPrograms = [];
+                const progRef = db.collection('user_programs').doc(cleanUser);
+                const progDoc = await progRef.get();
+
+                if (progDoc.exists && Array.isArray(progDoc.data().programs)) {
+                    cloudPrograms = progDoc.data().programs;
+                }
+
+                localStorage.setItem('pseudocode_auth_username', cleanUser);
+                localStorage.setItem('pseudocode_saved_programs', JSON.stringify(cloudPrograms));
+
+                return { username: cleanUser, programs: cloudPrograms };
+            } catch (err) {
+                throw handleFirestoreError(err);
             }
-
-            const userData = userDoc.data();
-            const passHash = await hashPassword(cleanUser, password);
-
-            if (userData.passwordHash !== passHash) {
-                throw new Error('Password salah. Silakan coba lagi.');
-            }
-
-            // Ambil semua program pengguna dari Cloud
-            let cloudPrograms = [];
-            const progRef = db.collection('user_programs').doc(cleanUser);
-            const progDoc = await progRef.get();
-
-            if (progDoc.exists && Array.isArray(progDoc.data().programs)) {
-                cloudPrograms = progDoc.data().programs;
-            }
-
-            localStorage.setItem('pseudocode_auth_username', cleanUser);
-            localStorage.setItem('pseudocode_saved_programs', JSON.stringify(cloudPrograms));
-
-            return { username: cleanUser, programs: cloudPrograms };
         },
 
         // Keluar Akun
@@ -285,7 +312,7 @@
                 }, { merge: true });
                 return true;
             } catch (e) {
-                console.error('Gagal sinkron ke Cloud:', e);
+                console.error('Gagal sinkron ke Cloud:', handleFirestoreError(e));
                 return false;
             }
         },
@@ -303,7 +330,7 @@
                     return progs;
                 }
             } catch (e) {
-                console.error('Gagal menarik data dari cloud:', e);
+                console.error('Gagal menarik data dari cloud:', handleFirestoreError(e));
             }
             return null;
         }
