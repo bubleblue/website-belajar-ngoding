@@ -2,14 +2,33 @@
  * Pseudocode Engine & AST Interpreter
  * Supports Indonesian & English pseudocode keywords
  * Supports step-by-step execution & variable inspection
- * Features: Case-insensitive variables, Semicolon tolerance,
- * Repeat-Until, For Downto, Array operations, I/O variations (write, readln, scan),
- * and compound assignments.
+ * Features:
+ * 1. Struktur Utama: program, kamus, algoritma, endprogram
+ * 2. Deklarasi & Tipe Data: integer, real, string, char, boolean, const, bounded array [awal..akhir]
+ * 3. I/O & Penugasan: input, output, <-, :=, =, +=, -=, ++, --, array indexing
+ * 4. Percabangan: if-then-endif, if-then-else-endif, if-then-elseif-else-endif (and Indonesian)
+ * 5. Perulangan: for to/downto do endfor, while do endwhile, repeat until (and Indonesian)
+ * 6. Sub-program: procedure (with input, output, input/output params), function (with -> type, return),
+ *    in-expression evaluation, recursion, and parameter writeback.
  */
 
 class PseudocodeInterpreter {
-    constructor() {
+    constructor(parent = null) {
+        this.parent = parent;
         this.reset();
+        if (parent) {
+            this.functions = parent.functions;
+            this.procedures = parent.procedures;
+            this.constants = { ...parent.constants };
+            this.onOutput = parent.onOutput;
+            this.inputQueue = parent.inputQueue;
+            this.output = parent.output;
+            this.env = { ...parent.constants, ...parent.env };
+        } else {
+            this.functions = {};
+            this.procedures = {};
+            this.constants = {};
+        }
     }
 
     reset() {
@@ -22,8 +41,10 @@ class PseudocodeInterpreter {
         this.waitingForInput = null; // callback or varName when waiting for user
         this.status = 'idle'; // 'idle', 'running', 'paused', 'waiting_input', 'finished', 'error'
         this.error = null;
-        this.maxSteps = 15000; // prevent infinite loops
+        this.maxSteps = 25000; // prevent infinite loops
         this.stepCount = 0;
+        this.returnValue = undefined;
+        this.currentSubName = null;
         this.onOutput = null; // hook for live output
         this.onEnvChange = null; // hook for variable table update
         this.onLineChange = null; // hook for line highlight
@@ -33,7 +54,6 @@ class PseudocodeInterpreter {
     preprocess(code) {
         const rawLines = code.split('\n');
         const processed = [];
-
         let inMultiComment = false;
 
         for (let i = 0; i < rawLines.length; i++) {
@@ -123,10 +143,135 @@ class PseudocodeInterpreter {
         return processed;
     }
 
-    // Compile pseudocode into flat executable instructions with jump targets
+    // Parse procedure/function parameters with directions (input, output, inout)
+    parseParams(paramStr) {
+        if (!paramStr || !paramStr.trim()) return [];
+        const groupRegex = /(?:(input\/output|inout|input|output)\s+)?([a-zA-Z_][a-zA-Z0-9_,\s]*?)\s*:\s*([a-zA-Z0-9_\[\].\s]+)(?:;|,|$)/gi;
+        const params = [];
+        let match;
+        let foundAny = false;
+        while ((match = groupRegex.exec(paramStr)) !== null) {
+            foundAny = true;
+            const dirRaw = (match[1] || 'input').toLowerCase();
+            const direction = (dirRaw === 'input/output' || dirRaw === 'inout') ? 'inout' : dirRaw;
+            const namesPart = match[2];
+            const type = match[3].trim().toLowerCase();
+            const names = namesPart.split(',').map(n => n.trim()).filter(Boolean);
+            names.forEach(n => {
+                params.push({ name: n, type, direction });
+            });
+        }
+        if (!foundAny) {
+            const names = paramStr.split(',').map(n => n.trim()).filter(Boolean);
+            names.forEach(n => {
+                params.push({ name: n, type: 'any', direction: 'input' });
+            });
+        }
+        return params;
+    }
+
+    // First-pass scanner: extract functions and procedures
+    extractSubprograms(lines) {
+        const remaining = [];
+        let i = 0;
+        while (i < lines.length) {
+            const lineObj = lines[i];
+            const text = lineObj.text;
+
+            // Function declaration: function <nama>(<params>) [->|:] <retType>
+            const funcMatch = text.match(/^(?:FUNCTION|FUNGSI)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*?)\))?(?:\s*(?:->|:)\s*([a-zA-Z0-9_\[\].\s]+))?$/i);
+            if (funcMatch) {
+                const funcName = funcMatch[1];
+                const rawParams = funcMatch[2] || '';
+                const retType = (funcMatch[3] || 'any').trim().toLowerCase();
+                const params = this.parseParams(rawParams);
+
+                const bodyLines = [];
+                i++;
+                while (i < lines.length) {
+                    const subLine = lines[i];
+                    if (/^(?:ENDFUNCTION|END_FUNCTION|END\s*FUNCTION|SELESAI_FUNGSI|SELESAI\s*FUNGSI)\b/i.test(subLine.text)) {
+                        break;
+                    }
+                    bodyLines.push(subLine);
+                    i++;
+                }
+
+                this.functions[funcName.toLowerCase()] = {
+                    name: funcName,
+                    params,
+                    retType,
+                    bodyLines
+                };
+                i++;
+                continue;
+            }
+
+            // Procedure declaration: procedure <nama>(input/output <params> : <type>)
+            const procMatch = text.match(/^(?:PROCEDURE|PROSEDUR)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*?)\))?$/i);
+            if (procMatch) {
+                const procName = procMatch[1];
+                const rawParams = procMatch[2] || '';
+                const params = this.parseParams(rawParams);
+
+                const bodyLines = [];
+                i++;
+                while (i < lines.length) {
+                    const subLine = lines[i];
+                    if (/^(?:ENDPROCEDURE|END_PROCEDURE|END\s*PROCEDURE|SELESAI_PROSEDUR|SELESAI\s*PROSEDUR)\b/i.test(subLine.text)) {
+                        break;
+                    }
+                    bodyLines.push(subLine);
+                    i++;
+                }
+
+                this.procedures[procName.toLowerCase()] = {
+                    name: procName,
+                    params,
+                    bodyLines
+                };
+                i++;
+                continue;
+            }
+
+            remaining.push(lineObj);
+            i++;
+        }
+        return remaining;
+    }
+
+    // Compile extracted subprograms ahead of time
+    compileSubprograms() {
+        for (const fKey of Object.keys(this.functions)) {
+            const func = this.functions[fKey];
+            const sub = new PseudocodeInterpreter(this);
+            sub.currentSubName = func.name;
+            func.compiled = sub.compileLines(func.bodyLines);
+            func.interpreter = sub;
+        }
+
+        for (const pKey of Object.keys(this.procedures)) {
+            const proc = this.procedures[pKey];
+            const sub = new PseudocodeInterpreter(this);
+            sub.currentSubName = proc.name;
+            proc.compiled = sub.compileLines(proc.bodyLines);
+            proc.interpreter = sub;
+        }
+    }
+
+    // Main compilation entry point
     compile(code) {
         this.reset();
-        this.lines = this.preprocess(code);
+        const allLines = this.preprocess(code);
+        const mainLines = this.extractSubprograms(allLines);
+        this.compileSubprograms();
+        this.compileLines(mainLines);
+        return this.instructions;
+    }
+
+    // Compile an array of preprocessed line objects into flat bytecode instructions
+    compileLines(lines) {
+        this.lines = lines;
         const instrs = [];
 
         // Stacks for control flow jumps
@@ -141,18 +286,17 @@ class PseudocodeInterpreter {
         const inRegex = /^(?:INPUT|READLN|READ|BACALN|BACA|SCANLN|SCAN|MASUKKAN|MASUKAN)\b/i;
         const inStripRegex = /^(?:INPUT|READLN|READ|BACALN|BACA|SCANLN|SCAN|MASUKKAN|MASUKAN)\b\s*/i;
 
-        for (let i = 0; i < this.lines.length; i++) {
-            const lineObj = this.lines[i];
+        for (let i = 0; i < lines.length; i++) {
+            const lineObj = lines[i];
             const text = lineObj.text;
             const lineNum = lineObj.lineNum;
 
             if (!text) continue; // blank line
-
             const upper = text.toUpperCase();
 
-            // Detect program header (e.g. "program #####" or "program nama_program" or "algoritma nama")
+            // Program header (e.g. "program #####" or "program nama_program" or "algoritma nama")
             if (/^(PROGRAM|ALGORITMA)\s+[^\s:]+/i.test(text) || /^PROGRAM\b/i.test(text)) {
-                continue; // ignore program header
+                continue;
             }
             // Declaration section header (e.g. "kamus", "kamus:", "deklarasi", "deklarasi:")
             if (/^(DEKLARASI|KAMUS)\b/i.test(text)) {
@@ -160,7 +304,7 @@ class PseudocodeInterpreter {
                 inAlgoritma = false;
                 continue;
             }
-            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "deskripsi:", "begin", "mulai", "start")
+            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "begin", "mulai", "start")
             if (/^(DESKRIPSI|ALGORITMA|BEGIN|MULAI|START)\b/i.test(text)) {
                 inDeclarasi = false;
                 inAlgoritma = true;
@@ -176,38 +320,89 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // Variable declaration lines (e.g. "VAR a, b : integer" or "x : integer" or "var n, a, b int")
-            if (inDeclarasi || (!inAlgoritma && text.includes(':')) || /^VAR\b/i.test(text)) {
-                if (text.includes(':')) {
-                    const cleanDecl = text.replace(/^VAR\b/i, '').trim();
-                    const [varsPart, typePart] = cleanDecl.split(':');
-                    const vars = varsPart.split(',').map(v => v.trim()).filter(Boolean);
-                    const type = (typePart || '').trim().toLowerCase();
-                    vars.forEach(v => {
-                        let defaultVal = 0;
-                        if (type.includes('string') || type.includes('teks') || type.includes('char')) defaultVal = '';
-                        else if (type.includes('bool')) defaultVal = false;
-                        else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
-                        else if (type.includes('array') || type.includes('larik')) defaultVal = {};
-                        this.env[v] = defaultVal;
-                    });
-                    continue;
-                }
+            // RETURN statement in function or procedure: return <expr> or kembalikan <expr>
+            if (/^(?:RETURN|KEMBALIKAN)\b/i.test(upper)) {
+                const expr = text.replace(/^(?:RETURN|KEMBALIKAN)\b\s*/i, '').trim();
+                instrs.push({
+                    type: 'RETURN',
+                    lineNum,
+                    expr
+                });
+                continue;
+            }
 
-                // Go-style: var x int or var a, b int
-                const goDeclMatch = text.match(/^VAR\s+([a-zA-Z0-9_,\s]+)\s+(int|int32|int64|float|float32|float64|string|bool|bilangan|desimal|teks|boolean)\b/i);
-                if (goDeclMatch) {
-                    const vars = goDeclMatch[1].split(',').map(v => v.trim()).filter(Boolean);
-                    const type = goDeclMatch[2].toLowerCase();
-                    vars.forEach(v => {
-                        let defaultVal = 0;
-                        if (type.includes('string') || type.includes('teks')) defaultVal = '';
-                        else if (type.includes('bool')) defaultVal = false;
-                        else if (type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
-                        this.env[v] = defaultVal;
-                    });
-                    continue;
+            // CONST declaration: const <nama_konstanta> = <nilai>
+            const constMatch = text.match(/^CONST\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/i);
+            if (constMatch) {
+                const constName = constMatch[1].trim();
+                const rawVal = constMatch[2].trim();
+                let evaluatedVal = rawVal;
+                try {
+                    evaluatedVal = this.evalExpression(rawVal);
+                } catch (e) {
+                    evaluatedVal = rawVal.replace(/^["']|["']$/g, '');
                 }
+                this.env[constName] = evaluatedVal;
+                this.constants[constName.toLowerCase()] = evaluatedVal;
+                continue;
+            }
+
+            // BOUNDED ARRAY declaration: <nama_array> : array [<awal>..<akhir>] of <tipe_data>
+            const arrayDeclMatch = text.match(/^([a-zA-Z0-9_,\s]+)\s*:\s*array\s*\[\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*\]\s*of\s+([a-zA-Z0-9_]+)/i);
+            if (arrayDeclMatch) {
+                const names = arrayDeclMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+                const start = parseInt(arrayDeclMatch[2], 10);
+                const end = parseInt(arrayDeclMatch[3], 10);
+                const type = arrayDeclMatch[4].toLowerCase();
+
+                let defaultVal = 0;
+                if (type.includes('string') || type.includes('char') || type.includes('teks')) defaultVal = '';
+                else if (type.includes('bool') || type.includes('logika')) defaultVal = false;
+                else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
+
+                names.forEach(name => {
+                    const arrObj = {};
+                    for (let idx = start; idx <= end; idx++) {
+                        arrObj[idx] = defaultVal;
+                    }
+                    this.env[name] = arrObj;
+                });
+                continue;
+            }
+
+            // Standard variable declaration lines: <var> : <type>
+            const isColonDecl = !text.includes(':=') && text.includes(':') && (
+                inDeclarasi || !inAlgoritma || /^VAR\b/i.test(text)
+            );
+            if (isColonDecl || (inDeclarasi && /^VAR\b/i.test(text))) {
+                const cleanDecl = text.replace(/^VAR\b/i, '').trim();
+                const [varsPart, typePart] = cleanDecl.split(':');
+                const vars = varsPart.split(',').map(v => v.trim()).filter(Boolean);
+                const type = (typePart || '').trim().toLowerCase();
+                vars.forEach(v => {
+                    let defaultVal = 0;
+                    if (type.includes('string') || type.includes('teks') || type.includes('char')) defaultVal = '';
+                    else if (type.includes('bool')) defaultVal = false;
+                    else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
+                    else if (type.includes('array') || type.includes('larik')) defaultVal = {};
+                    this.env[v] = defaultVal;
+                });
+                continue;
+            }
+
+            // Go-style declaration fallback: var a, b int
+            const goDeclMatch = text.match(/^VAR\s+([a-zA-Z0-9_,\s]+)\s+(int|int32|int64|float|float32|float64|string|bool|bilangan|desimal|teks|boolean)\b/i);
+            if (goDeclMatch) {
+                const vars = goDeclMatch[1].split(',').map(v => v.trim()).filter(Boolean);
+                const type = goDeclMatch[2].toLowerCase();
+                vars.forEach(v => {
+                    let defaultVal = 0;
+                    if (type.includes('string') || type.includes('teks')) defaultVal = '';
+                    else if (type.includes('bool')) defaultVal = false;
+                    else if (type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
+                    this.env[v] = defaultVal;
+                });
+                continue;
             }
 
             // Control structures: IF / JIKA
@@ -272,7 +467,6 @@ class PseudocodeInterpreter {
                 }
                 const curIf = ifStack[ifStack.length - 1];
 
-                // Jump from previous branch to after ENDIF
                 const exitJumpIdx = instrs.length;
                 instrs.push({
                     type: 'JUMP',
@@ -281,9 +475,8 @@ class PseudocodeInterpreter {
                 });
                 curIf.exitJumps.push(exitJumpIdx);
 
-                // Patch previous conditional jump to this ELSE start
                 instrs[curIf.ifInstrIdx].target = instrs.length;
-                curIf.ifInstrIdx = -1; // no more conditions to patch
+                curIf.ifInstrIdx = -1;
                 continue;
             }
 
@@ -316,7 +509,6 @@ class PseudocodeInterpreter {
                 let endExpr = forMatch[3].trim().replace(/\s+(DO|LAKUKAN)$/i, '').trim();
                 const stepExpr = forMatch[4] ? forMatch[4].trim() : (isDownTo ? '-1' : '1');
 
-                // Instruction 1: Init variable
                 instrs.push({
                     type: 'ASSIGN',
                     lineNum,
@@ -325,14 +517,13 @@ class PseudocodeInterpreter {
                 });
 
                 const loopCondIdx = instrs.length;
-                // Instruction 2: Check condition
                 instrs.push({
                     type: 'FOR_CHECK',
                     lineNum,
                     varName,
                     endExpr,
                     stepExpr,
-                    target: -1 // to be patched
+                    target: -1
                 });
 
                 loopStack.push({
@@ -351,7 +542,6 @@ class PseudocodeInterpreter {
                 }
                 const curLoop = loopStack.pop();
 
-                // Increment step instruction
                 instrs.push({
                     type: 'FOR_STEP',
                     lineNum,
@@ -359,14 +549,12 @@ class PseudocodeInterpreter {
                     stepExpr: curLoop.stepExpr
                 });
 
-                // Jump back to check
                 instrs.push({
                     type: 'JUMP',
                     lineNum,
                     target: curLoop.startIdx
                 });
 
-                // Patch FOR_CHECK target to instruction immediately after loop
                 instrs[curLoop.startIdx].target = instrs.length;
                 continue;
             }
@@ -391,7 +579,6 @@ class PseudocodeInterpreter {
                     throw new Error(`Sintaks UNTIL/SAMPAI tidak valid di baris ${lineNum}`);
                 }
                 const condition = match[1].trim();
-                // REPEAT-UNTIL: jumps back if condition is FALSE
                 instrs.push({
                     type: 'JUMP_IF_FALSE',
                     lineNum,
@@ -431,14 +618,12 @@ class PseudocodeInterpreter {
                 }
                 const curLoop = loopStack.pop();
 
-                // Jump back to condition
                 instrs.push({
                     type: 'JUMP',
                     lineNum,
                     target: curLoop.startIdx
                 });
 
-                // Patch while condition false target
                 instrs[curLoop.startIdx].target = instrs.length;
                 continue;
             }
@@ -463,7 +648,6 @@ class PseudocodeInterpreter {
             // OUTPUT / WRITE / WRITELN / PRINT / PRINTLN / TULIS / CETAK / TAMPILKAN
             if (outRegex.test(upper)) {
                 let content = text.replace(outStripRegex, '').trim();
-                // strip enclosing parentheses if whole line is wrapped like TULIS(...)
                 if (content.startsWith('(') && content.endsWith(')')) {
                     let depth = 0;
                     let balanced = true;
@@ -530,6 +714,19 @@ class PseudocodeInterpreter {
                 continue;
             }
 
+            // Assignment to current function's return value: funcName <- expr
+            if (this.currentSubName) {
+                const fnRetMatch = text.match(new RegExp(`^${this.currentSubName}\\s*(?:<-|:=|=)\\s*(.+)$`, 'i'));
+                if (fnRetMatch) {
+                    instrs.push({
+                        type: 'RETURN',
+                        lineNum,
+                        expr: fnRetMatch[1].trim()
+                    });
+                    continue;
+                }
+            }
+
             // Regular Assignment: var <- expr OR var := expr OR var = expr
             const assignMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=)\s*(.+)$/);
             if (assignMatch) {
@@ -540,6 +737,20 @@ class PseudocodeInterpreter {
                     lineNum,
                     varName,
                     expr
+                });
+                continue;
+            }
+
+            // Procedure call statement: procName(arg1, arg2) or procName()
+            const procCallMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\((.*?)\)$/);
+            if (procCallMatch) {
+                const procName = procCallMatch[1];
+                const rawArgs = procCallMatch[2];
+                instrs.push({
+                    type: 'CALL_PROCEDURE',
+                    lineNum,
+                    procName,
+                    rawArgs
                 });
                 continue;
             }
@@ -561,13 +772,15 @@ class PseudocodeInterpreter {
         return instrs;
     }
 
-    // Split comma-separated arguments in OUTPUT, respecting quotes and parentheses
+    // Split comma-separated arguments in OUTPUT or subprogram calls, respecting quotes, parens, and brackets
     splitOutputArgs(raw) {
+        if (!raw || !raw.trim()) return [];
         const args = [];
         let current = '';
         let inQuotes = false;
         let quoteChar = '';
         let parenDepth = 0;
+        let bracketDepth = 0;
 
         for (let i = 0; i < raw.length; i++) {
             const ch = raw[i];
@@ -585,7 +798,13 @@ class PseudocodeInterpreter {
             } else if (!inQuotes && ch === ')') {
                 parenDepth = Math.max(0, parenDepth - 1);
                 current += ch;
-            } else if (!inQuotes && parenDepth === 0 && ch === ',') {
+            } else if (!inQuotes && ch === '[') {
+                bracketDepth++;
+                current += ch;
+            } else if (!inQuotes && ch === ']') {
+                bracketDepth = Math.max(0, bracketDepth - 1);
+                current += ch;
+            } else if (!inQuotes && parenDepth === 0 && bracketDepth === 0 && ch === ',') {
                 if (current.trim()) {
                     args.push(current.trim());
                 }
@@ -600,7 +819,57 @@ class PseudocodeInterpreter {
         return args;
     }
 
-    // Evaluate an expression string with variable context
+    // Execute user-defined function synchronously inside expressions
+    callFunction(funcName, callArgs) {
+        const lower = funcName.toLowerCase();
+        const func = this.functions[lower];
+        if (!func) throw new Error(`Fungsi '${funcName}' tidak ditemukan.`);
+
+        const sub = new PseudocodeInterpreter(this);
+        sub.currentSubName = func.name;
+        sub.instructions = func.compiled;
+        sub.lines = func.bodyLines;
+
+        // Bind parameters
+        func.params.forEach((p, idx) => {
+            const val = (idx < callArgs.length) ? callArgs[idx] : 0;
+            sub.env[p.name] = val;
+        });
+
+        sub.initExecution();
+        while (sub.status === 'running') {
+            const stepRes = sub.step();
+            if (stepRes.done) break;
+        }
+
+        return sub.returnValue;
+    }
+
+    // Write back updated values to variable or array element target
+    assignTarget(targetExpr, val) {
+        const trimmed = targetExpr.trim();
+        // Array target: arr[idx]
+        const arrMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[(.+?)\]$/);
+        if (arrMatch) {
+            const arrName = arrMatch[1];
+            const idxExpr = arrMatch[2];
+            const idx = this.evalExpression(idxExpr);
+            const lowerArr = arrName.toLowerCase();
+            const realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerArr) || arrName;
+            if (!this.env[realKey] || typeof this.env[realKey] !== 'object') {
+                this.env[realKey] = {};
+            }
+            this.env[realKey][idx] = val;
+            return;
+        }
+
+        // Variable target: x
+        const lowerVar = trimmed.toLowerCase();
+        const realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || trimmed;
+        this.env[realKey] = val;
+    }
+
+    // Evaluate an expression string with variable context, functions, and math
     evalExpression(expr) {
         if (typeof expr !== 'string') return expr;
         let clean = expr.trim();
@@ -609,7 +878,6 @@ class PseudocodeInterpreter {
         // Strip trailing semicolon if present
         clean = clean.replace(/;\s*$/, '');
 
-        // Replace Pseudocode keywords with JS equivalents safely
         // 1. Strings replacement placeholders to prevent keyword replacements inside strings
         const stringLiterals = [];
         clean = clean.replace(/(["'])(?:(?=(\\?))\2.)*?\1/g, (match) => {
@@ -652,10 +920,13 @@ class PseudocodeInterpreter {
             clean = clean.replace(regex, k);
         });
 
-        // Construct safe evaluation scope
+        // Construct safe evaluation scope with variables and user functions
         try {
             const varNames = Object.keys(this.env);
             const varValues = varNames.map(k => this.env[k]);
+
+            const funcNames = Object.keys(this.functions).map(k => this.functions[k].name);
+            const funcValues = funcNames.map(fnName => (...args) => this.callFunction(fnName, args));
 
             const scopeMath = {
                 abs: Math.abs,
@@ -667,8 +938,11 @@ class PseudocodeInterpreter {
                 max: Math.max
             };
 
-            const fn = new Function(...varNames, 'Math', `"use strict"; return (${clean});`);
-            const res = fn(...varValues, Math);
+            const scopeKeys = [...varNames, ...funcNames, 'Math'];
+            const scopeVals = [...varValues, ...funcValues, Math];
+
+            const fn = new Function(...scopeKeys, `"use strict"; return (${clean});`);
+            const res = fn(...scopeVals);
             return res;
         } catch (err) {
             throw new Error(`Gagal mengevaluasi ekspresi: "${expr}". (${err.message})`);
@@ -678,8 +952,12 @@ class PseudocodeInterpreter {
     // Prepare for execution
     initExecution(inputData = []) {
         this.ip = 0;
-        this.output = [];
-        this.inputQueue = [...inputData];
+        if (!this.parent) {
+            this.output = [];
+        } else {
+            this.output = this.parent.output;
+        }
+        this.inputQueue = this.parent ? this.parent.inputQueue : [...inputData];
         this.stepCount = 0;
         this.status = 'running';
         this.error = null;
@@ -711,9 +989,59 @@ class PseudocodeInterpreter {
         }
 
         switch (instr.type) {
+            case 'RETURN': {
+                this.returnValue = this.evalExpression(instr.expr);
+                this.status = 'finished';
+                this.ip = this.instructions.length;
+                return { done: true, lineNum: curLine };
+            }
+            case 'CALL_PROCEDURE': {
+                const lower = instr.procName.toLowerCase();
+                const proc = this.procedures[lower];
+                if (!proc) {
+                    throw new Error(`Prosedur '${instr.procName}' tidak ditemukan di baris ${curLine}`);
+                }
+                const argExprs = this.splitOutputArgs(instr.rawArgs);
+                const argValues = argExprs.map(arg => this.evalExpression(arg));
+
+                const sub = new PseudocodeInterpreter(this);
+                sub.currentSubName = proc.name;
+                sub.instructions = proc.compiled;
+                sub.lines = proc.bodyLines;
+
+                // Bind parameters
+                proc.params.forEach((p, idx) => {
+                    const val = (idx < argValues.length) ? argValues[idx] : 0;
+                    sub.env[p.name] = val;
+                });
+
+                sub.initExecution();
+                while (sub.status === 'running') {
+                    const stepRes = sub.step();
+                    if (stepRes.done) break;
+                }
+
+                // Writeback inout / output parameters to caller variables or array elements
+                proc.params.forEach((p, idx) => {
+                    if (p.direction === 'inout' || p.direction === 'output') {
+                        const targetExpr = argExprs[idx];
+                        if (targetExpr) {
+                            const updatedVal = sub.env[p.name];
+                            this.assignTarget(targetExpr, updatedVal);
+                        }
+                    }
+                });
+
+                this.ip++;
+                if (this.onEnvChange) this.onEnvChange(this.env);
+                break;
+            }
             case 'ASSIGN': {
-                const val = this.evalExpression(instr.expr);
                 const lowerVar = instr.varName.toLowerCase();
+                if (this.constants[lowerVar] !== undefined) {
+                    throw new Error(`Tidak dapat mengubah nilai konstanta '${instr.varName}' di baris ${curLine}`);
+                }
+                const val = this.evalExpression(instr.expr);
                 let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
                 this.env[realKey] = val;
                 this.ip++;
@@ -734,9 +1062,7 @@ class PseudocodeInterpreter {
                 break;
             }
             case 'INPUT': {
-                const lowerVar = instr.varName.toLowerCase();
-                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
-
+                const rawVar = instr.varName.trim();
                 if (this.inputQueue.length > 0) {
                     const rawVal = this.inputQueue.shift();
                     let val = rawVal;
@@ -750,14 +1076,14 @@ class PseudocodeInterpreter {
                             val = parseFloat(normalized);
                         }
                     }
-                    this.env[realKey] = val;
+                    this.assignTarget(rawVar, val);
                     this.ip++;
                     if (this.onEnvChange) this.onEnvChange(this.env);
                 } else {
                     // Need user input!
                     this.status = 'waiting_input';
-                    this.waitingForInput = realKey;
-                    return { done: false, waitingInput: true, varName: realKey, lineNum: curLine };
+                    this.waitingForInput = rawVar;
+                    return { done: false, waitingInput: true, varName: rawVar, lineNum: curLine };
                 }
                 break;
             }
@@ -842,7 +1168,7 @@ class PseudocodeInterpreter {
         if (/^-?\d+$/.test(normalized)) parsedVal = parseInt(normalized, 10);
         else if (/^-?\d+\.\d+$/.test(normalized)) parsedVal = parseFloat(normalized);
 
-        this.env[this.waitingForInput] = parsedVal;
+        this.assignTarget(this.waitingForInput, parsedVal);
         this.waitingForInput = null;
         this.status = 'running';
         this.ip++;

@@ -84,10 +84,10 @@ class GoInterpreter {
                 continue;
             }
 
-            // fmt print statements
-            line = line.replace(/fmt\.Println\s*\(/g, 'await __fmt.Println(');
-            line = line.replace(/fmt\.Print\s*\(/g, 'await __fmt.Print(');
-            line = line.replace(/fmt\.Printf\s*\(/g, 'await __fmt.Printf(');
+            // fmt print statements (synchronous output in web terminal)
+            line = line.replace(/fmt\.Println\s*\(/g, '__fmt.Println(');
+            line = line.replace(/fmt\.Print\s*\(/g, '__fmt.Print(');
+            line = line.replace(/fmt\.Printf\s*\(/g, '__fmt.Printf(');
 
             // fmt.Scan / fmt.Scanln / fmt.Scanf
             const scanMatch = line.match(/fmt\.(?:Scan|Scanln|Scanf)\s*\((.+?)\)/);
@@ -127,8 +127,8 @@ class GoInterpreter {
                 continue;
             }
 
-            // Var declaration with explicit type: var a, b int [= val1, val2]
-            const varTypedMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+?)\s+(int|int64|int32|int16|int8|uint|uint64|uint32|uint16|uint8|float64|float32|string|bool|byte|rune|any|\[\][a-zA-Z0-9_]+)(?:\s*=\s*(.+))?$/);
+            // Var declaration with explicit type: var a, b int [= val1, val2] or var deret [6]int
+            const varTypedMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+?)\s+(int|int64|int32|int16|int8|uint|uint64|uint32|uint16|uint8|float64|float32|string|bool|byte|rune|any|\[\d*\][a-zA-Z0-9_]+)(?:\s*=\s*(.+))?$/);
             if (varTypedMatch) {
                 const names = varTypedMatch[1].split(',').map(v => v.trim()).filter(Boolean);
                 const type = varTypedMatch[2];
@@ -136,7 +136,11 @@ class GoInterpreter {
                 if (type === 'string') defaultVal = '""';
                 else if (type === 'bool') defaultVal = 'false';
                 else if (type.startsWith('float')) defaultVal = '0.0';
-                else if (type.startsWith('[]')) defaultVal = '[]';
+                else if (type.startsWith('[')) {
+                    const sizeMatch = type.match(/^\[(\d+)\]/);
+                    const size = sizeMatch ? parseInt(sizeMatch[1], 10) : 0;
+                    defaultVal = size > 0 ? `new Array(${size}).fill(0)` : '[]';
+                }
 
                 if (varTypedMatch[3]) {
                     const vals = varTypedMatch[3].trim();
@@ -515,30 +519,62 @@ class GoInterpreter {
 
 // Bidirectional Transpiler: Pseudocode <-> Golang
 class CodeTranspiler {
+    static pseudoToGoType(typeStr) {
+        const raw = (typeStr || '').trim().toLowerCase();
+        if (raw.includes('real') || raw.includes('float') || raw.includes('desimal')) return 'float64';
+        if (raw.includes('string') || raw.includes('teks')) return 'string';
+        if (raw.includes('char') || raw.includes('karakter')) return 'byte';
+        if (raw.includes('bool')) return 'bool';
+        return 'int';
+    }
+
+    static parseParamsToGo(paramStr) {
+        if (!paramStr || !paramStr.trim()) return '';
+        const groupRegex = /(?:(input\/output|inout|input|output)\s+)?([a-zA-Z_][a-zA-Z0-9_,\s]*?)\s*:\s*([a-zA-Z0-9_\[\].\s]+)(?:;|,|$)/gi;
+        const parts = [];
+        let match;
+        let found = false;
+        while ((match = groupRegex.exec(paramStr)) !== null) {
+            found = true;
+            const dir = (match[1] || 'input').toLowerCase();
+            const isPointer = (dir === 'input/output' || dir === 'inout');
+            const names = match[2].split(',').map(s => s.trim()).filter(Boolean);
+            const goType = (isPointer ? '*' : '') + CodeTranspiler.pseudoToGoType(match[3]);
+            names.forEach(n => parts.push(`${n} ${goType}`));
+        }
+        if (!found) {
+            return paramStr.split(',').map(p => p.trim() + ' int').join(', ');
+        }
+        return parts.join(', ');
+    }
+
     // Convert Pseudocode (Indonesian/English) into idiomatic Golang
     static pseudocodeToGo(pseudoCode) {
         const lines = pseudoCode.split('\n');
-        const goLines = [
-            'package main',
-            '',
-            'import "fmt"',
-            '',
-            'func main() {'
-        ];
+        const topLevelGo = [];
+        const mainGo = [];
 
         let inKamus = false;
+        let inSub = false;
         const declaredVars = new Set();
+
+        const appendGo = (str) => {
+            if (inSub) {
+                topLevelGo.push(str);
+            } else {
+                mainGo.push(str);
+            }
+        };
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i].trim();
             if (!line) continue;
 
-            // Strip trailing semicolon from statement lines
             line = line.replace(/;\s*$/, '');
 
             // Comments
             if (line.startsWith('//') || line.startsWith('#')) {
-                goLines.push('    ' + line.replace(/^#/, '//'));
+                appendGo('    ' + line.replace(/^#/, '//'));
                 continue;
             }
 
@@ -554,27 +590,84 @@ class CodeTranspiler {
                 inKamus = false;
                 continue;
             }
-            if (/^(endprogram|selesai|end)\b/i.test(line)) {
+            if (/^(endprogram|selesai|end)$/i.test(line)) {
+                continue;
+            }
+
+            // Function declaration: function <nama>(<params>) [->|:] <retType>
+            const funcMatch = line.match(/^(?:function|fungsi)\s+([a-zA-Z0-9_]+)\s*(?:\((.*?)\))?(?:\s*(?:->|:)\s*([a-zA-Z0-9_\[\].\s]+))?$/i);
+            if (funcMatch) {
+                inSub = true;
+                inKamus = false;
+                const fnName = funcMatch[1];
+                const rawParams = funcMatch[2] || '';
+                const retType = CodeTranspiler.pseudoToGoType(funcMatch[3]);
+                const params = CodeTranspiler.parseParamsToGo(rawParams);
+                topLevelGo.push(`func ${fnName}(${params}) ${retType} {`);
+                continue;
+            }
+
+            // Procedure declaration: procedure <nama>(<params>)
+            const procMatch = line.match(/^(?:procedure|prosedur)\s+([a-zA-Z0-9_]+)\s*(?:\((.*?)\))?$/i);
+            if (procMatch) {
+                inSub = true;
+                inKamus = false;
+                const procName = procMatch[1];
+                const rawParams = procMatch[2] || '';
+                const params = CodeTranspiler.parseParamsToGo(rawParams);
+                topLevelGo.push(`func ${procName}(${params}) {`);
+                continue;
+            }
+
+            // End of function / procedure
+            if (/^(?:endfunction|end_function|end\s*function|endprocedure|end_procedure|end\s*procedure|selesai_fungsi|selesai_prosedur)\b/i.test(line)) {
+                topLevelGo.push('}\n');
+                inSub = false;
+                inKamus = false;
+                continue;
+            }
+
+            // Return statement
+            if (/^(?:return|kembalikan)\b/i.test(line)) {
+                let expr = line.replace(/^(?:return|kembalikan)\b\s*/i, '').trim();
+                expr = expr.replace(/\bmod\b/gi, '%').replace(/\bdiv\b/gi, '/');
+                appendGo(`    return ${expr}`);
+                continue;
+            }
+
+            // Const declaration: const PI = 3.14
+            const constMatch = line.match(/^const\s+([a-zA-Z0-9_]+)\s*=\s*(.+)$/i);
+            if (constMatch) {
+                const cName = constMatch[1];
+                const cVal = constMatch[2].trim();
+                if (inSub) {
+                    topLevelGo.push(`    const ${cName} = ${cVal}`);
+                } else {
+                    topLevelGo.unshift(`const ${cName} = ${cVal}`);
+                }
+                continue;
+            }
+
+            // Bounded Array declaration: deret : array [1..5] of integer
+            const arrDeclMatch = line.match(/^([a-zA-Z0-9_,\s]+)\s*:\s*array\s*\[\s*(-?\d+)\s*\.\.\s*(-?\d+)\s*\]\s*of\s+([a-zA-Z0-9_]+)/i);
+            if (arrDeclMatch) {
+                const names = arrDeclMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+                const endIdx = parseInt(arrDeclMatch[3], 10) + 1;
+                const goType = CodeTranspiler.pseudoToGoType(arrDeclMatch[4]);
+                names.forEach(n => declaredVars.add(n));
+                appendGo(`    var ${names.join(', ')} [${endIdx}]${goType}`);
                 continue;
             }
 
             // Variable declaration in kamus
-            if (inKamus || (!line.includes('<-') && line.includes(':')) || /^var\b/i.test(line)) {
+            if (inKamus || (!line.includes('<-') && !line.includes(':=') && line.includes(':')) || /^var\b/i.test(line)) {
                 if (line.includes(':')) {
                     const [varsPart, typePart] = line.split(':');
                     const vars = varsPart.replace(/^var\b/i, '').split(',').map(v => v.trim()).filter(Boolean);
-                    const rawType = (typePart || '').trim().toLowerCase();
-                    let goType = 'int';
-                    if (rawType.includes('real') || rawType.includes('float') || rawType.includes('desimal') || rawType.includes('pecahan')) {
-                        goType = 'float64';
-                    } else if (rawType.includes('string') || rawType.includes('teks')) {
-                        goType = 'string';
-                    } else if (rawType.includes('bool')) {
-                        goType = 'bool';
-                    }
+                    const goType = CodeTranspiler.pseudoToGoType(typePart);
 
                     vars.forEach(v => declaredVars.add(v));
-                    goLines.push(`    var ${vars.join(', ')} ${goType}`);
+                    appendGo(`    var ${vars.join(', ')} ${goType}`);
                     continue;
                 }
             }
@@ -585,7 +678,7 @@ class CodeTranspiler {
                 if (match) {
                     const args = match[1].split(',').map(s => s.trim().replace(/^&/, ''));
                     const scanArgs = args.map(a => `&${a}`).join(', ');
-                    goLines.push(`    fmt.Scan(${scanArgs})`);
+                    appendGo(`    fmt.Scan(${scanArgs})`);
                     continue;
                 }
             }
@@ -594,7 +687,7 @@ class CodeTranspiler {
             if (/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\(/i.test(line)) {
                 const match = line.match(/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\((.+?)\)/i);
                 if (match) {
-                    goLines.push(`    fmt.Println(${match[1]})`);
+                    appendGo(`    fmt.Println(${match[1]})`);
                     continue;
                 }
             }
@@ -608,17 +701,26 @@ class CodeTranspiler {
                 cond = cond.replace(/\bor\b|\batau\b/gi, '||');
                 cond = cond.replace(/<>/g, '!=');
                 cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
-                goLines.push(`    if ${cond} {`);
+                appendGo(`    if ${cond} {`);
+                continue;
+            }
+
+            if (/^(?:else\s*if|lainnya\s*jika|elseif)\s+(.+?)(?:\s+(?:maka|then))?$/i.test(line)) {
+                const match = line.match(/^(?:else\s*if|lainnya\s*jika|elseif)\s+(.+?)(?:\s+(?:maka|then))?$/i);
+                let cond = match[1].replace(/\s+(maka|then)$/i, '').trim();
+                cond = cond.replace(/\bmod\b/gi, '%').replace(/\band\b|\bdan\b/gi, '&&').replace(/\bor\b|\batau\b/gi, '||');
+                cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
+                appendGo(`    } else if ${cond} {`);
                 continue;
             }
 
             if (/^(?:lainnya|else|selain\s*itu|selainitu)$/i.test(line)) {
-                goLines.push('    } else {');
+                appendGo('    } else {');
                 continue;
             }
 
             if (/^(?:selesai_jika|selesai\s*jika|endif|end\s*if)$/i.test(line)) {
-                goLines.push('    }');
+                appendGo('    }');
                 continue;
             }
 
@@ -630,21 +732,21 @@ class CodeTranspiler {
                 const start = match[2].trim();
                 let end = match[3].replace(/\s+(lakukan|do)$/i, '').trim();
                 if (isDown) {
-                    goLines.push(`    for ${v} := ${start}; ${v} >= ${end}; ${v}-- {`);
+                    appendGo(`    for ${v} := ${start}; ${v} >= ${end}; ${v}-- {`);
                 } else {
-                    goLines.push(`    for ${v} := ${start}; ${v} <= ${end}; ${v}++ {`);
+                    appendGo(`    for ${v} := ${start}; ${v} <= ${end}; ${v}++ {`);
                 }
                 continue;
             }
 
             if (/^(?:selesai_untuk|selesai\s*untuk|endfor|end\s*for|next(\s+[a-zA-Z0-9_]+)?)$/i.test(line)) {
-                goLines.push('    }');
+                appendGo('    }');
                 continue;
             }
 
             // Repeat ... Until
             if (/^(?:repeat|ulangi)$/i.test(line)) {
-                goLines.push('    for {');
+                appendGo('    for {');
                 continue;
             }
             if (/^(?:until|sampai)\s+(.+)$/i.test(line)) {
@@ -652,8 +754,8 @@ class CodeTranspiler {
                 let cond = match[1].trim();
                 cond = cond.replace(/\bmod\b/gi, '%').replace(/\band\b|\bdan\b/gi, '&&').replace(/\bor\b|\batau\b/gi, '||');
                 cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
-                goLines.push(`        if ${cond} { break }`);
-                goLines.push('    }');
+                appendGo(`        if ${cond} { break }`);
+                appendGo('    }');
                 continue;
             }
 
@@ -666,18 +768,18 @@ class CodeTranspiler {
                 cond = cond.replace(/\bor\b|\batau\b/gi, '||');
                 cond = cond.replace(/<>/g, '!=');
                 cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
-                goLines.push(`    for ${cond} {`);
+                appendGo(`    for ${cond} {`);
                 continue;
             }
 
             if (/^(?:selesai_selama|selesai\s*selama|endwhile|end\s*while)$/i.test(line)) {
-                goLines.push('    }');
+                appendGo('    }');
                 continue;
             }
 
             // Increment / Decrement
             if (/^[a-zA-Z0-9_]+\s*(\+\+|\-\-)$/.test(line)) {
-                goLines.push('    ' + line);
+                appendGo('    ' + line);
                 continue;
             }
 
@@ -686,16 +788,30 @@ class CodeTranspiler {
                 let [left, right] = line.split(/<-|:=/).map(s => s.trim());
                 right = right.replace(/\bmod\b/gi, '%');
                 right = right.replace(/\bdiv\b/gi, '/');
-                goLines.push(`    ${left} = ${right}`);
+                appendGo(`    ${left} = ${right}`);
                 continue;
             }
 
             // Fallback
-            goLines.push('    ' + line);
+            appendGo('    ' + line);
         }
 
-        goLines.push('}');
-        return goLines.join('\n');
+        const out = [
+            'package main',
+            '',
+            'import "fmt"',
+            ''
+        ];
+
+        if (topLevelGo.length > 0) {
+            out.push(...topLevelGo, '');
+        }
+
+        out.push('func main() {');
+        out.push(...mainGo);
+        out.push('}');
+
+        return out.join('\n');
     }
 
     // Convert Go code to Pseudocode
@@ -707,12 +823,80 @@ class CodeTranspiler {
         pseudoLines.push('kamus');
 
         const declaredVars = new Set();
+        const subprogramLines = [];
         const bodyLines = [];
-        const blockStack = []; // stores 'for' | 'if' | 'while' | 'repeat'
+        const blockStack = []; // stores 'for' | 'if' | 'while' | 'repeat' | 'function' | 'procedure'
+        let currentSub = null; // 'function' | 'procedure' | null
+
+        const goTypeToPseudo = (t) => {
+            if (!t) return 'integer';
+            const raw = t.trim().toLowerCase();
+            if (raw.includes('float')) return 'real';
+            if (raw === 'string') return 'string';
+            if (raw === 'bool') return 'boolean';
+            if (raw === 'byte' || raw === 'rune') return 'char';
+            return 'integer';
+        };
+
+        const parseGoParamsToPseudo = (rawParams) => {
+            if (!rawParams || !rawParams.trim()) return '';
+            const parts = rawParams.split(',').map(p => p.trim()).filter(Boolean);
+            const result = [];
+            parts.forEach(p => {
+                const segs = p.split(/\s+/);
+                if (segs.length >= 2) {
+                    const name = segs[0];
+                    const type = segs[1];
+                    const isPointer = type.startsWith('*');
+                    const cleanType = type.replace(/^\*/, '');
+                    const pType = goTypeToPseudo(cleanType);
+                    const dir = isPointer ? 'input/output ' : '';
+                    result.push(`${dir}${name} : ${pType}`);
+                } else {
+                    result.push(p);
+                }
+            });
+            return result.join(', ');
+        };
+
+        const appendBody = (str) => {
+            if (currentSub) {
+                subprogramLines.push(str);
+            } else {
+                bodyLines.push(str);
+            }
+        };
 
         for (let rawLine of lines) {
             let line = rawLine.trim();
-            if (!line || line.startsWith('//') || /^package\b|^import\b|^func\s+main/i.test(line)) {
+            if (!line || line.startsWith('//') || /^package\b|^import\b/i.test(line)) {
+                continue;
+            }
+
+            // func main()
+            if (/^func\s+main\s*\(\s*\)/i.test(line)) {
+                currentSub = null;
+                continue;
+            }
+
+            // Top-level Go function / procedure: func name(params) retType {
+            const funcMatch = line.match(/^func\s+([a-zA-Z0-9_]+)\s*\((.*?)\)(?:\s+([a-zA-Z0-9_,\s\*\(\)\[\]]+))?\s*\{/);
+            if (funcMatch) {
+                const fnName = funcMatch[1];
+                const rawParams = funcMatch[2] || '';
+                const retType = funcMatch[3];
+                const pseudoParams = parseGoParamsToPseudo(rawParams);
+
+                if (retType) {
+                    currentSub = 'function';
+                    blockStack.push('function');
+                    const pType = goTypeToPseudo(retType);
+                    subprogramLines.push(`    function ${fnName}(${pseudoParams}) -> ${pType}`);
+                } else {
+                    currentSub = 'procedure';
+                    blockStack.push('procedure');
+                    subprogramLines.push(`    procedure ${fnName}(${pseudoParams})`);
+                }
                 continue;
             }
 
@@ -720,14 +904,38 @@ class CodeTranspiler {
             if (line === '}' || line.startsWith('}')) {
                 const closing = blockStack.pop();
                 if (closing === 'for') {
-                    bodyLines.push('    selesai_untuk');
+                    appendBody('    selesai_untuk');
                 } else if (closing === 'if') {
-                    bodyLines.push('    selesai_jika');
+                    appendBody('    selesai_jika');
                 } else if (closing === 'while') {
-                    bodyLines.push('    selesai_selama');
+                    appendBody('    selesai_selama');
+                } else if (closing === 'function') {
+                    subprogramLines.push('    endfunction\n');
+                    currentSub = null;
+                } else if (closing === 'procedure') {
+                    subprogramLines.push('    endprocedure\n');
+                    currentSub = null;
                 }
                 if (line === '}') continue;
                 line = line.replace(/^\}\s*/, '');
+            }
+
+            // Const: const PI = 3.14
+            const constMatch = line.match(/^const\s+([a-zA-Z0-9_]+)\s*=\s*(.+)$/i);
+            if (constMatch) {
+                pseudoLines.push(`    const ${constMatch[1]} = ${constMatch[2].trim()}`);
+                continue;
+            }
+
+            // Fixed array declaration: var deret [6]int
+            const arrMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+)\s+\[(\d+)\]([a-zA-Z0-9_]+)/i);
+            if (arrMatch) {
+                const names = arrMatch[1].trim();
+                const maxIdx = Math.max(1, parseInt(arrMatch[2], 10) - 1);
+                const pType = goTypeToPseudo(arrMatch[3]);
+                names.split(',').forEach(n => declaredVars.add(n.trim()));
+                pseudoLines.push(`    ${names} : array [1..${maxIdx}] of ${pType}`);
+                continue;
             }
 
             // Var declaration: var a, b int or var x float64
@@ -735,12 +943,15 @@ class CodeTranspiler {
             if (varMatch) {
                 const names = varMatch[1].trim();
                 const typeStr = varMatch[2].toLowerCase();
-                let pseudoType = 'integer';
-                if (typeStr.includes('float')) pseudoType = 'real';
-                else if (typeStr === 'string') pseudoType = 'string';
-                else if (typeStr === 'bool') pseudoType = 'boolean';
+                const pseudoType = goTypeToPseudo(typeStr);
                 names.split(',').forEach(n => declaredVars.add(n.trim()));
                 pseudoLines.push(`    ${names} : ${pseudoType}`);
+                continue;
+            }
+
+            // Return statement: return x
+            if (/^return\b/i.test(line)) {
+                appendBody('    ' + line);
                 continue;
             }
 
@@ -748,14 +959,14 @@ class CodeTranspiler {
             const scanMatch = line.match(/fmt\.(?:Scan|Scanln|Scanf)\s*\((.+?)\)/);
             if (scanMatch) {
                 const args = scanMatch[1].split(',').map(s => s.trim().replace(/^&/, ''));
-                bodyLines.push(`    input(${args.join(', ')})`);
+                appendBody(`    input(${args.join(', ')})`);
                 continue;
             }
 
             // fmt.Println(...) / fmt.Printf(...)
             const printMatch = line.match(/fmt\.(?:Println|Print|Printf)\s*\((.+?)\)/);
             if (printMatch) {
-                bodyLines.push(`    output(${printMatch[1]})`);
+                appendBody(`    output(${printMatch[1]})`);
                 continue;
             }
 
@@ -767,7 +978,7 @@ class CodeTranspiler {
                     declaredVars.add(loopVar);
                     pseudoLines.push(`    ${loopVar} : integer`);
                 }
-                bodyLines.push(`    untuk ${loopVar} <- ${forMatch[2].trim()} sampai ${forMatch[3].trim()} lakukan`);
+                appendBody(`    untuk ${loopVar} <- ${forMatch[2].trim()} sampai ${forMatch[3].trim()} lakukan`);
                 blockStack.push('for');
                 continue;
             }
@@ -776,7 +987,7 @@ class CodeTranspiler {
             const whileMatch = line.match(/^for\s+([^{]+)\s*\{/);
             if (whileMatch && !line.includes(';')) {
                 let cond = whileMatch[1].trim();
-                bodyLines.push(`    selama ${cond} lakukan`);
+                appendBody(`    selama ${cond} lakukan`);
                 blockStack.push('while');
                 continue;
             }
@@ -784,13 +995,13 @@ class CodeTranspiler {
             // if statement: if cond {
             const ifMatch = line.match(/^if\s+([^{]+)\s*\{/);
             if (ifMatch) {
-                bodyLines.push(`    jika ${ifMatch[1].trim()} maka`);
+                appendBody(`    jika ${ifMatch[1].trim()} maka`);
                 blockStack.push('if');
                 continue;
             }
 
             if (/^else\s*\{/.test(line)) {
-                bodyLines.push('    lainnya');
+                appendBody('    lainnya');
                 blockStack.push('if');
                 continue;
             }
@@ -798,19 +1009,26 @@ class CodeTranspiler {
             // Assignment
             if (line.includes('=') && !line.includes('==') && !line.includes('<=') && !line.includes('>=')) {
                 line = line.replace(':=', '<-').replace('=', '<-');
-                bodyLines.push('    ' + line);
+                appendBody('    ' + line);
                 continue;
             }
 
-            bodyLines.push('    ' + line);
+            appendBody('    ' + line);
         }
 
         // Flush any unclosed blocks
         while (blockStack.length > 0) {
             const closing = blockStack.pop();
-            if (closing === 'for') bodyLines.push('    selesai_untuk');
-            else if (closing === 'if') bodyLines.push('    selesai_jika');
-            else if (closing === 'while') bodyLines.push('    selesai_selama');
+            if (closing === 'for') appendBody('    selesai_untuk');
+            else if (closing === 'if') appendBody('    selesai_jika');
+            else if (closing === 'while') appendBody('    selesai_selama');
+            else if (closing === 'function') subprogramLines.push('    endfunction\n');
+            else if (closing === 'procedure') subprogramLines.push('    endprocedure\n');
+        }
+
+        if (subprogramLines.length > 0) {
+            pseudoLines.push('');
+            pseudoLines.push(...subprogramLines);
         }
 
         pseudoLines.push('algoritma');

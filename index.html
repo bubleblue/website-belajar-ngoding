@@ -599,119 +599,135 @@
             </div>
             <div class="sheet-body">
                 <div class="cheatsheet-grid">
-                    <!-- Section 1: Struktur Dasar Pseudocode -->
+                    <!-- Section 1: Struktur Utama -->
                     <div class="cheat-item">
-                        <h4>1. Struktur Dasar Pseudocode</h4>
-                        <pre><code>program #####
+                        <h4>1. Struktur Utama</h4>
+                        <pre><code>program &lt;nama_program&gt;
 kamus
-    a, b : integer
-    nama : string
+    // deklarasi variabel, konstanta, fungsi/prosedur
 algoritma
-    // instruksi program ditulis di sini
+    // deretan instruksi utama
 endprogram</code></pre>
                     </div>
 
-                    <!-- Section 2: Struktur Dasar Golang -->
+                    <!-- Section 2: Deklarasi & Tipe Data -->
                     <div class="cheat-item">
-                        <h4>2. Struktur Dasar Golang (Go)</h4>
-                        <pre><code>package main
+                        <h4>2. Deklarasi &amp; Tipe Data (di dalam kamus)</h4>
+                        <pre><code>// Variabel dasar:
+&lt;nama_variabel&gt; : integer
+&lt;nama_variabel&gt; : real
+&lt;nama_variabel&gt; : string
+&lt;nama_variabel&gt; : char
+&lt;nama_variabel&gt; : boolean
 
-import "fmt"
-
-func main() {
-    var a, b int
-    var nama string
-    // instruksi program di sini
-}</code></pre>
+// Konstanta &amp; Larik (Array):
+const &lt;nama_konstanta&gt; = &lt;nilai&gt;
+&lt;nama_array&gt; : array [&lt;awal&gt;..&lt;akhir&gt;] of &lt;tipe_data&gt;
+// Contoh: deret : array [1..5] of integer</code></pre>
                     </div>
 
-                    <!-- Section 3: Input & Output Pseudocode -->
+                    <!-- Section 3: Input, Output & Penugasan -->
                     <div class="cheat-item">
-                        <h4>3. I/O Pseudocode (input &amp; output)</h4>
-                        <pre><code>// menerima masukan:
-input(nama)
+                        <h4>3. Input, Output &amp; Penugasan</h4>
+                        <pre><code>// Masukan (Input):
+input(&lt;nama_variabel&gt;)
 input(a, b)
+input(deret[1])
 
-// menampilkan keluaran:
-output("halo dunia")
-output("nilai: ", a)</code></pre>
+// Keluaran (Output):
+output(&lt;nilai_atau_variabel&gt;)
+output("Hasil: ", luas)
+
+// Penugasan (Assignment):
+&lt;nama_variabel&gt; &lt;- &lt;nilai&gt;
+deret[1] &lt;- 25</code></pre>
                     </div>
 
-                    <!-- Section 4: Input & Output Golang -->
+                    <!-- Section 4: Percabangan -->
                     <div class="cheat-item">
-                        <h4>4. I/O Golang (fmt.Scan &amp; fmt.Println)</h4>
-                        <pre><code>// menerima masukan dari terminal:
-fmt.Scan(&amp;nama)
+                        <h4>4. Percabangan (Branching)</h4>
+                        <pre><code>// Bentuk 1 (IF):
+if &lt;kondisi&gt; then ... endif
+
+// Bentuk 2 (IF - ELSE):
+if &lt;kondisi&gt; then ... else ... endif
+
+// Bentuk 3 (IF - ELSE IF - ELSE):
+if &lt;kondisi&gt; then
+    ...
+else if &lt;kondisi&gt; then
+    ...
+else
+    ...
+endif</code></pre>
+                    </div>
+
+                    <!-- Section 5: Perulangan -->
+                    <div class="cheat-item">
+                        <h4>5. Perulangan (Looping)</h4>
+                        <pre><code>// Perulangan FOR (Naik / Turun):
+for &lt;var&gt; &lt;- &lt;awal&gt; to &lt;akhir&gt; do ... endfor
+for &lt;var&gt; &lt;- &lt;awal&gt; downto &lt;akhir&gt; do ... endfor
+
+// Perulangan WHILE:
+while &lt;kondisi&gt; do ... endwhile
+
+// Perulangan REPEAT - UNTIL:
+repeat ... until &lt;kondisi&gt;</code></pre>
+                    </div>
+
+                    <!-- Section 6: Sub-program (Procedure & Function) -->
+                    <div class="cheat-item">
+                        <h4>6. Sub-program (Prosedur &amp; Fungsi)</h4>
+                        <pre><code>// Prosedur (bisa dengan input/output / inout):
+procedure &lt;nama&gt;(input/output &lt;param&gt; : &lt;tipe&gt;)
+kamus
+    // variabel lokal (opsional)
+algoritma
+    // instruksi prosedur
+endprocedure
+
+// Fungsi (dengan tipe pengembalian &amp; return):
+function &lt;nama&gt;(&lt;param&gt; : &lt;tipe&gt;) -&gt; &lt;tipe&gt;
+algoritma
+    return &lt;nilai&gt;
+endfunction</code></pre>
+                    </div>
+
+                    <!-- Section 7: Ekivalen Golang -->
+                    <div class="cheat-item">
+                        <h4>7. Padanan Sintaks Golang (Go)</h4>
+                        <pre><code>// Input &amp; Output Go:
 fmt.Scan(&amp;a, &amp;b)
+fmt.Println("Halo Dunia")
 
-// menampilkan keluaran ke terminal:
-fmt.Println("halo dunia")
-fmt.Printf("nilai a: %d\n", a)</code></pre>
+// Loop di Go:
+for i := 1; i &lt;= n; i++ { ... }
+for &lt;kondisi&gt; { ... }
+
+// Subprogram di Go:
+func luas(r float64) float64 { return 3.14 * r * r }
+func tukar(x, y *int) { ... }</code></pre>
                     </div>
 
-                    <!-- Section 5: Percabangan -->
+                    <!-- Section 8: Contoh Pseudocode Lengkap -->
                     <div class="cheat-item">
-                        <h4>5. Percabangan (Pseudocode vs Go)</h4>
-                        <pre><code>// Pseudocode:
-jika nilai &gt;= 75 maka
-    output("lulus")
-lainnya
-    output("remidi")
-selesai_jika
+                        <h4>8. Contoh Program Lengkap Siap Dijalankan</h4>
+                        <pre><code>program hitung_lingkaran
+kamus
+    const PI = 3.14
+    r, hasil : real
 
-// Golang:
-if nilai &gt;= 75 {
-    fmt.Println("lulus")
-} else {
-    fmt.Println("remidi")
-}</code></pre>
-                    </div>
+    function hitungLuas(radius : real) -&gt; real
+    algoritma
+        return PI * radius * radius
+    endfunction
 
-                    <!-- Section 6: Perulangan -->
-                    <div class="cheat-item">
-                        <h4>6. Perulangan Loop (Pseudocode vs Go)</h4>
-                        <pre><code>// Pseudocode:
-untuk i &lt;- 1 sampai 5 lakukan
-    output("angka: ", i)
-selesai_untuk
-
-// Golang:
-for i := 1; i &lt;= 5; i++ {
-    fmt.Println("angka:", i)
-}</code></pre>
-                    </div>
-
-                    <!-- Section 7: Perulangan Kondisi (While) -->
-                    <div class="cheat-item">
-                        <h4>7. While Loop (selama ... lakukan)</h4>
-                        <pre><code>// Pseudocode:
-selama i &lt;= 5 lakukan
-    output(i)
-    i &lt;- i + 1
-selesai_selama
-
-// Golang:
-for i &lt;= 5 {
-    fmt.Println(i)
-    i++
-}</code></pre>
-                    </div>
-
-                    <!-- Section 8: Contoh Lengkap Golang -->
-                    <div class="cheat-item">
-                        <h4>8. Contoh Program Golang Siap Dijalankan</h4>
-                        <pre><code>package main
-
-import "fmt"
-
-func main() {
-    var p, l int
-    fmt.Println("=== Hitung Luas ===")
-    fmt.Scan(&amp;p)
-    fmt.Scan(&amp;l)
-    luas := p * l
-    fmt.Println("Luas Persegi Panjang:", luas)
-}</code></pre>
+algoritma
+    input(r)
+    hasil &lt;- hitungLuas(r)
+    output("Luas: ", hasil)
+endprogram</code></pre>
                     </div>
                 </div>
             </div>
