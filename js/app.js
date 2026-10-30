@@ -2142,6 +2142,66 @@ endprogram`;
         });
     }
 
+    // Interactive Prompt User Input for Pseudocode Console
+    function promptUserInput(varName) {
+        return new Promise((resolve) => {
+            if (!elements.inputModal) {
+                const res = window.prompt(`Program meminta nilai untuk variabel '${varName}':`, '');
+                resolve(res);
+                return;
+            }
+
+            if (elements.inputPromptLabel) {
+                elements.inputPromptLabel.textContent = `Program meminta nilai untuk variabel '${varName}':`;
+            }
+            if (elements.userInputField) {
+                elements.userInputField.value = '';
+            }
+
+            elements.inputModal.classList.add('active');
+            if (elements.userInputField) {
+                setTimeout(() => {
+                    if (elements.userInputField) elements.userInputField.focus();
+                }, 60);
+            }
+
+            const cleanup = () => {
+                if (elements.btnInputSubmit) elements.btnInputSubmit.removeEventListener('click', onSubmit);
+                if (elements.btnInputCancel) elements.btnInputCancel.removeEventListener('click', onCancel);
+                if (elements.userInputField) elements.userInputField.removeEventListener('keydown', onKeyDown);
+                if (elements.inputModal) elements.inputModal.classList.remove('active');
+            };
+
+            const onSubmit = () => {
+                const val = elements.userInputField ? elements.userInputField.value : '';
+                cleanup();
+                if (window.soundManager) window.soundManager.playTap();
+                printConsole(`[Masukan ${varName}]: ${val}`, 'system');
+                resolve(val);
+            };
+
+            const onCancel = () => {
+                cleanup();
+                if (window.soundManager) window.soundManager.playTap();
+                resolve(null);
+            };
+
+            const onKeyDown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    onSubmit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    onCancel();
+                }
+            };
+
+            if (elements.btnInputSubmit) elements.btnInputSubmit.addEventListener('click', onSubmit);
+            if (elements.btnInputCancel) elements.btnInputCancel.addEventListener('click', onCancel);
+            if (elements.userInputField) elements.userInputField.addEventListener('keydown', onKeyDown);
+        });
+    }
+
     // Fast Run Button (For Pseudocode)
     elements.btnRunFast.addEventListener('click', async () => {
         if (window.soundManager) window.soundManager.playTap();

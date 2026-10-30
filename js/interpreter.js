@@ -2,6 +2,9 @@
  * Pseudocode Engine & AST Interpreter
  * Supports Indonesian & English pseudocode keywords
  * Supports step-by-step execution & variable inspection
+ * Features: Case-insensitive variables, Semicolon tolerance,
+ * Repeat-Until, For Downto, Array operations, I/O variations (write, readln, scan),
+ * and compound assignments.
  */
 
 class PseudocodeInterpreter {
@@ -26,7 +29,7 @@ class PseudocodeInterpreter {
         this.onLineChange = null; // hook for line highlight
     }
 
-    // Clean and split source code into line objects
+    // Clean and split source code into line objects with semicolon and comment support
     preprocess(code) {
         const rawLines = code.split('\n');
         const processed = [];
@@ -62,7 +65,7 @@ class PseudocodeInterpreter {
                 }
             }
 
-            // Single line comment // outside quotes
+            // Single line comment // or # outside quotes
             let inQuote = false;
             let qChar = '';
             let commentIdx = -1;
@@ -75,7 +78,7 @@ class PseudocodeInterpreter {
                     } else if (char === qChar) {
                         inQuote = false;
                     }
-                } else if (!inQuote && char === '/' && line[c + 1] === '/') {
+                } else if (!inQuote && ((char === '/' && line[c + 1] === '/') || char === '#')) {
                     commentIdx = c;
                     break;
                 }
@@ -84,12 +87,37 @@ class PseudocodeInterpreter {
                 line = line.substring(0, commentIdx);
             }
 
-            const trimmed = line.trim();
-            processed.push({
-                lineNum: originalLineNumber,
-                text: trimmed,
-                raw: rawLines[i]
-            });
+            // Split statements by semicolon outside quotes
+            const statements = [];
+            let current = '';
+            inQuote = false;
+            qChar = '';
+            for (let c = 0; c < line.length; c++) {
+                const ch = line[c];
+                if ((ch === '"' || ch === "'") && (c === 0 || line[c - 1] !== '\\')) {
+                    if (!inQuote) {
+                        inQuote = true;
+                        qChar = ch;
+                    } else if (ch === qChar) {
+                        inQuote = false;
+                    }
+                    current += ch;
+                } else if (!inQuote && ch === ';') {
+                    if (current.trim()) statements.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
+            }
+            if (current.trim()) statements.push(current.trim());
+
+            for (const stmt of statements) {
+                processed.push({
+                    lineNum: originalLineNumber,
+                    text: stmt,
+                    raw: rawLines[i]
+                });
+            }
         }
 
         return processed;
@@ -102,10 +130,16 @@ class PseudocodeInterpreter {
         const instrs = [];
 
         // Stacks for control flow jumps
-        const ifStack = []; // stores { ifInstrIdx, elseInstrIdxList: [], endJumpIndices: [] }
+        const ifStack = []; // stores { ifInstrIdx, exitJumps: [] }
         const loopStack = []; // stores { type: 'for'|'while'|'repeat', startIdx: number, varName?: string, endExpr?: string, stepExpr?: string }
 
         let inDeclarasi = false;
+        let inAlgoritma = false;
+
+        const outRegex = /^(?:OUTPUT|WRITELN|WRITE|PRINTLN|PRINT|TULISLN|TULIS|CETAKLN|CETAK|TAMPILKANLN|TAMPILKAN)\b/i;
+        const outStripRegex = /^(?:OUTPUT|WRITELN|WRITE|PRINTLN|PRINT|TULISLN|TULIS|CETAKLN|CETAK|TAMPILKANLN|TAMPILKAN)\b\s*/i;
+        const inRegex = /^(?:INPUT|READLN|READ|BACALN|BACA|SCANLN|SCAN|MASUKKAN|MASUKAN)\b/i;
+        const inStripRegex = /^(?:INPUT|READLN|READ|BACALN|BACA|SCANLN|SCAN|MASUKKAN|MASUKAN)\b\s*/i;
 
         for (let i = 0; i < this.lines.length; i++) {
             const lineObj = this.lines[i];
@@ -117,37 +151,59 @@ class PseudocodeInterpreter {
             const upper = text.toUpperCase();
 
             // Detect program header (e.g. "program #####" or "program nama_program" or "algoritma nama")
-            if (/^PROGRAM\b/i.test(text) || (/^ALGORITMA\s+[^\s:]+/i.test(text))) {
+            if (/^(PROGRAM|ALGORITMA)\s+[^\s:]+/i.test(text) || /^PROGRAM\b/i.test(text)) {
                 continue; // ignore program header
             }
             // Declaration section header (e.g. "kamus", "kamus:", "deklarasi", "deklarasi:")
             if (/^(DEKLARASI|KAMUS)\b/i.test(text)) {
                 inDeclarasi = true;
+                inAlgoritma = false;
                 continue;
             }
-            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "deskripsi:", "begin", "mulai")
-            if (/^(DESKRIPSI|ALGORITMA|BEGIN|MULAI)\b/i.test(text)) {
+            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "deskripsi:", "begin", "mulai", "start")
+            if (/^(DESKRIPSI|ALGORITMA|BEGIN|MULAI|START)\b/i.test(text)) {
                 inDeclarasi = false;
+                inAlgoritma = true;
                 continue;
             }
             // Program end (e.g. "endprogram", "end program", "end_program", "selesai", "end")
             if (/^(SELESAI|END|ENDPROGRAM|END_PROGRAM|END\s*PROGRAM)(\.)?$/i.test(upper)) {
-                // Program end
                 continue;
             }
 
-            // Variable declaration lines (e.g. "VAR a, b : integer" or "x : integer" or "nama: string")
-            if (inDeclarasi || /^VAR\b/i.test(text)) {
-                const cleanDecl = text.replace(/^VAR\b/i, '').trim();
-                if (cleanDecl.includes(':')) {
+            // Standalone THEN / MAKA / DO / LAKUKAN on their own line
+            if (/^(THEN|MAKA|DO|LAKUKAN)$/i.test(text)) {
+                continue;
+            }
+
+            // Variable declaration lines (e.g. "VAR a, b : integer" or "x : integer" or "var n, a, b int")
+            if (inDeclarasi || (!inAlgoritma && text.includes(':')) || /^VAR\b/i.test(text)) {
+                if (text.includes(':')) {
+                    const cleanDecl = text.replace(/^VAR\b/i, '').trim();
                     const [varsPart, typePart] = cleanDecl.split(':');
                     const vars = varsPart.split(',').map(v => v.trim()).filter(Boolean);
-                    const type = typePart.trim().toLowerCase();
+                    const type = (typePart || '').trim().toLowerCase();
+                    vars.forEach(v => {
+                        let defaultVal = 0;
+                        if (type.includes('string') || type.includes('teks') || type.includes('char')) defaultVal = '';
+                        else if (type.includes('bool')) defaultVal = false;
+                        else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
+                        else if (type.includes('array') || type.includes('larik')) defaultVal = {};
+                        this.env[v] = defaultVal;
+                    });
+                    continue;
+                }
+
+                // Go-style: var x int or var a, b int
+                const goDeclMatch = text.match(/^VAR\s+([a-zA-Z0-9_,\s]+)\s+(int|int32|int64|float|float32|float64|string|bool|bilangan|desimal|teks|boolean)\b/i);
+                if (goDeclMatch) {
+                    const vars = goDeclMatch[1].split(',').map(v => v.trim()).filter(Boolean);
+                    const type = goDeclMatch[2].toLowerCase();
                     vars.forEach(v => {
                         let defaultVal = 0;
                         if (type.includes('string') || type.includes('teks')) defaultVal = '';
                         else if (type.includes('bool')) defaultVal = false;
-                        else if (type.includes('real') || type.includes('float') || type.includes('desimal') || type.includes('pecahan')) defaultVal = 0.0;
+                        else if (type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
                         this.env[v] = defaultVal;
                     });
                     continue;
@@ -175,8 +231,8 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // ELSE IF / LAINNYA JIKA
-            if (/^(ELSE\s*IF|LAINNYA\s*JIKA)\b/i.test(upper)) {
+            // ELSE IF / LAINNYA JIKA / ELSEIF
+            if (/^(ELSE\s*IF|LAINNYA\s*JIKA|ELSEIF)\b/i.test(upper)) {
                 if (ifStack.length === 0) {
                     throw new Error(`ELSE IF tanpa IF di baris ${lineNum}`);
                 }
@@ -194,7 +250,7 @@ class PseudocodeInterpreter {
                 // Patch previous conditional jump to here
                 instrs[curIf.ifInstrIdx].target = instrs.length;
 
-                const match = text.match(/^(?:ELSE\s*IF|LAINNYA\s*JIKA)\s+(.+?)(?:\s+(?:THEN|MAKA))?$/i);
+                const match = text.match(/^(?:ELSE\s*IF|LAINNYA\s*JIKA|ELSEIF)\s+(.+?)(?:\s+(?:THEN|MAKA))?$/i);
                 if (!match) {
                     throw new Error(`Sintaks ELSE IF tidak valid di baris ${lineNum}`);
                 }
@@ -210,7 +266,7 @@ class PseudocodeInterpreter {
             }
 
             // ELSE / LAINNYA / SELAIN_ITU
-            if (/^(ELSE|LAINNYA|SELAIN\s*ITU)\b/i.test(upper)) {
+            if (/^(ELSE|LAINNYA|SELAIN\s*ITU|SELAINITU)\b/i.test(upper)) {
                 if (ifStack.length === 0) {
                     throw new Error(`ELSE tanpa IF di baris ${lineNum}`);
                 }
@@ -232,7 +288,7 @@ class PseudocodeInterpreter {
             }
 
             // ENDIF / SELESAI_JIKA / END IF
-            if (/^(END\s*IF|SELESAI\s*JIKA|SELESAI_JIKA|ENDIF)\b/i.test(upper)) {
+            if (/^(END\s*IF|SELESAI\s*JIKA|SELESAI_JIKA|ENDIF|END_IF)\b/i.test(upper)) {
                 if (ifStack.length === 0) {
                     throw new Error(`ENDIF tanpa pasangan IF di baris ${lineNum}`);
                 }
@@ -248,20 +304,17 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // FOR / UNTUK loop
-            // FOR i <- 1 TO 10 DO / UNTUK i <- 1 SAMPAI 10 LAKUKAN
+            // FOR / UNTUK loop (Supports TO, SAMPAI, DOWNTO, TURUN KE, STEP, LANGKAH, DO, LAKUKAN)
             if (/^(FOR|UNTUK)\b/i.test(upper)) {
-                // Match "FOR var <- start TO end [STEP step] [DO]"
-                const forMatch = text.match(/^(?:FOR|UNTUK)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=)\s*(.+?)\s+(?:TO|SAMPAI)\s+(.+?)(?:\s+(?:STEP|LANGKAH)\s+(.+?))?(?:\s+(?:DO|LAKUKAN))?$/i);
+                const isDownTo = /\b(?:DOWNTO|TURUN\s*KE|TURUN)\b/i.test(text);
+                const forMatch = text.match(/^(?:FOR|UNTUK)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=|FROM)\s*(.+?)\s+(?:TO|SAMPAI|DOWNTO|TURUN\s*KE|TURUN)\s+(.+?)(?:\s+(?:STEP|LANGKAH)\s+(.+?))?(?:\s+(?:DO|LAKUKAN))?$/i);
                 if (!forMatch) {
                     throw new Error(`Sintaks FOR tidak valid di baris ${lineNum}. Contoh: FOR i <- 1 TO 10 DO`);
                 }
                 const varName = forMatch[1];
                 const startExpr = forMatch[2].trim();
-                let endExpr = forMatch[3].trim();
-                // strip trailing DO/LAKUKAN if present in endExpr
-                endExpr = endExpr.replace(/\s+(DO|LAKUKAN)$/i, '').trim();
-                const stepExpr = forMatch[4] ? forMatch[4].trim() : '1';
+                let endExpr = forMatch[3].trim().replace(/\s+(DO|LAKUKAN)$/i, '').trim();
+                const stepExpr = forMatch[4] ? forMatch[4].trim() : (isDownTo ? '-1' : '1');
 
                 // Instruction 1: Init variable
                 instrs.push({
@@ -272,7 +325,7 @@ class PseudocodeInterpreter {
                 });
 
                 const loopCondIdx = instrs.length;
-                // Instruction 2: Check condition (i <= end)
+                // Instruction 2: Check condition
                 instrs.push({
                     type: 'FOR_CHECK',
                     lineNum,
@@ -291,8 +344,8 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // ENDFOR / SELESAI_UNTUK
-            if (/^(END\s*FOR|SELESAI\s*UNTUK|SELESAI_UNTUK|ENDFOR)\b/i.test(upper)) {
+            // ENDFOR / SELESAI_UNTUK / NEXT
+            if (/^(END\s*FOR|SELESAI\s*UNTUK|SELESAI_UNTUK|ENDFOR|END_FOR|NEXT(\s+[a-zA-Z_][a-zA-Z0-9_]*)?)\b/i.test(upper)) {
                 if (loopStack.length === 0 || loopStack[loopStack.length - 1].type !== 'for') {
                     throw new Error(`ENDFOR tanpa pasangan FOR di baris ${lineNum}`);
                 }
@@ -318,15 +371,43 @@ class PseudocodeInterpreter {
                 continue;
             }
 
+            // REPEAT / ULANGI loop
+            if (/^(REPEAT|ULANGI)\b/i.test(upper)) {
+                loopStack.push({
+                    type: 'repeat',
+                    startIdx: instrs.length
+                });
+                continue;
+            }
+
+            // UNTIL / SAMPAI
+            if (/^(UNTIL|SAMPAI)\b/i.test(upper)) {
+                if (loopStack.length === 0 || loopStack[loopStack.length - 1].type !== 'repeat') {
+                    throw new Error(`UNTIL/SAMPAI tanpa pasangan REPEAT/ULANGI di baris ${lineNum}`);
+                }
+                const curLoop = loopStack.pop();
+                const match = text.match(/^(?:UNTIL|SAMPAI)\s+(.+)$/i);
+                if (!match) {
+                    throw new Error(`Sintaks UNTIL/SAMPAI tidak valid di baris ${lineNum}`);
+                }
+                const condition = match[1].trim();
+                // REPEAT-UNTIL: jumps back if condition is FALSE
+                instrs.push({
+                    type: 'JUMP_IF_FALSE',
+                    lineNum,
+                    condition,
+                    target: curLoop.startIdx
+                });
+                continue;
+            }
+
             // WHILE / SELAMA loop
-            // WHILE <condition> DO / SELAMA <condition> LAKUKAN
             if (/^(WHILE|SELAMA)\b/i.test(upper)) {
                 const whileMatch = text.match(/^(?:WHILE|SELAMA)\s+(.+?)(?:\s+(?:DO|LAKUKAN))?$/i);
                 if (!whileMatch) {
                     throw new Error(`Sintaks WHILE tidak valid di baris ${lineNum}`);
                 }
-                let condition = whileMatch[1].trim();
-                condition = condition.replace(/\s+(DO|LAKUKAN)$/i, '').trim();
+                let condition = whileMatch[1].trim().replace(/\s+(DO|LAKUKAN)$/i, '').trim();
 
                 const loopCondIdx = instrs.length;
                 instrs.push({
@@ -344,7 +425,7 @@ class PseudocodeInterpreter {
             }
 
             // ENDWHILE / SELESAI_SELAMA
-            if (/^(END\s*WHILE|SELESAI\s*SELAMA|SELESAI_SELAMA|ENDWHILE)\b/i.test(upper)) {
+            if (/^(END\s*WHILE|SELESAI\s*SELAMA|SELESAI_SELAMA|ENDWHILE|END_WHILE)\b/i.test(upper)) {
                 if (loopStack.length === 0 || loopStack[loopStack.length - 1].type !== 'while') {
                     throw new Error(`ENDWHILE tanpa pasangan WHILE di baris ${lineNum}`);
                 }
@@ -362,11 +443,10 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // INPUT / BACA / READ
-            if (/^(INPUT|BACA|READ|MASUKKAN)\b/i.test(upper)) {
-                // e.g. INPUT x, y or INPUT(x)
-                const content = text.replace(/^(?:INPUT|BACA|READ|MASUKKAN)\s*/i, '').replace(/^\(|\)$/g, '').trim();
-                const vars = content.split(',').map(s => s.trim()).filter(Boolean);
+            // INPUT / BACA / READ / READLN / SCAN / SCANLN / MASUKKAN
+            if (inRegex.test(upper)) {
+                const content = text.replace(inStripRegex, '').replace(/^\(|\)$/g, '').trim();
+                const vars = content.split(',').map(s => s.trim().replace(/^&/, '')).filter(Boolean);
                 if (vars.length === 0) {
                     throw new Error(`Perintah INPUT memerlukan variabel di baris ${lineNum}`);
                 }
@@ -380,12 +460,11 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // OUTPUT / TULIS / PRINT / CETAK / TAMPILKAN
-            if (/^(OUTPUT|TULIS|PRINT|CETAK|TAMPILKAN)\b/i.test(upper)) {
-                let content = text.replace(/^(?:OUTPUT|TULIS|PRINT|CETAK|TAMPILKAN)\s*/i, '').trim();
+            // OUTPUT / WRITE / WRITELN / PRINT / PRINTLN / TULIS / CETAK / TAMPILKAN
+            if (outRegex.test(upper)) {
+                let content = text.replace(outStripRegex, '').trim();
                 // strip enclosing parentheses if whole line is wrapped like TULIS(...)
                 if (content.startsWith('(') && content.endsWith(')')) {
-                    // Check if parentheses balance internally
                     let depth = 0;
                     let balanced = true;
                     for (let c = 0; c < content.length - 1; c++) {
@@ -406,7 +485,52 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // ASSIGNMENT: var <- expr OR var := expr OR var = expr
+            // Increment / Decrement: i++ or i--
+            const incDecMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\+\+|\-\-)$/);
+            if (incDecMatch) {
+                const varName = incDecMatch[1];
+                const op = incDecMatch[2] === '++' ? '+' : '-';
+                instrs.push({
+                    type: 'ASSIGN',
+                    lineNum,
+                    varName,
+                    expr: `${varName} ${op} 1`
+                });
+                continue;
+            }
+
+            // Compound Assignment: var += expr, var -= expr, etc.
+            const compoundMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\+=|\-=|\*=|\/=)\s*(.+)$/);
+            if (compoundMatch) {
+                const varName = compoundMatch[1];
+                const op = compoundMatch[2][0];
+                const rightExpr = compoundMatch[3].trim();
+                instrs.push({
+                    type: 'ASSIGN',
+                    lineNum,
+                    varName,
+                    expr: `${varName} ${op} (${rightExpr})`
+                });
+                continue;
+            }
+
+            // Array Assignment: A[i] <- expr
+            const arrayAssignMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*\[(.+?)\]\s*(?:<-|:=|=)\s*(.+)$/);
+            if (arrayAssignMatch) {
+                const arrName = arrayAssignMatch[1];
+                const indexExpr = arrayAssignMatch[2].trim();
+                const expr = arrayAssignMatch[3].trim();
+                instrs.push({
+                    type: 'ASSIGN_ARRAY',
+                    lineNum,
+                    arrName,
+                    indexExpr,
+                    expr
+                });
+                continue;
+            }
+
+            // Regular Assignment: var <- expr OR var := expr OR var = expr
             const assignMatch = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=)\s*(.+)$/);
             if (assignMatch) {
                 const varName = assignMatch[1].trim();
@@ -420,7 +544,7 @@ class PseudocodeInterpreter {
                 continue;
             }
 
-            // If we don't recognize it, could be an unknown command or invalid syntax
+            // If we don't recognize it, throw clear syntax error
             throw new Error(`Sintaks tidak dikenali di baris ${lineNum}: "${text}"`);
         }
 
@@ -447,7 +571,6 @@ class PseudocodeInterpreter {
 
         for (let i = 0; i < raw.length; i++) {
             const ch = raw[i];
-
             if ((ch === '"' || ch === "'") && (i === 0 || raw[i - 1] !== '\\')) {
                 if (!inQuotes) {
                     inQuotes = true;
@@ -483,6 +606,9 @@ class PseudocodeInterpreter {
         let clean = expr.trim();
         if (!clean) return 0;
 
+        // Strip trailing semicolon if present
+        clean = clean.replace(/;\s*$/, '');
+
         // Replace Pseudocode keywords with JS equivalents safely
         // 1. Strings replacement placeholders to prevent keyword replacements inside strings
         const stringLiterals = [];
@@ -492,9 +618,7 @@ class PseudocodeInterpreter {
         });
 
         // 2. Modulo & integer division
-        // MOD or % -> %
         clean = clean.replace(/\bMOD\b/gi, '%');
-        // DIV -> Math.floor(a / b) - we can replace a DIV b with Math.floor((a)/(b)) or helper
         clean = clean.replace(/([a-zA-Z0-9_().]+)\s+\bDIV\b\s+([a-zA-Z0-9_().]+)/gi, 'Math.floor(($1)/($2))');
 
         // Exponentiation ^ -> **
@@ -508,10 +632,8 @@ class PseudocodeInterpreter {
         clean = clean.replace(/\bNOT\b/gi, '!');
         clean = clean.replace(/\bBUKAN\b/gi, '!');
 
-        // Comparison operators: = into == (except <=, >=, !=, ==)
-        // First convert <> to !=
+        // Comparison operators: = into === (except <=, >=, !=, ==)
         clean = clean.replace(/<>/g, '!=');
-        // Convert single = to == (if not already part of ==, <=, >=, !=)
         clean = clean.replace(/(?<![<>=!])=(?![=])/g, '===');
 
         // Boolean values
@@ -523,12 +645,18 @@ class PseudocodeInterpreter {
             clean = clean.replace(`__STR_${idx}__`, str);
         });
 
+        // Case-insensitive variable resolution
+        const envKeys = Object.keys(this.env);
+        envKeys.forEach(k => {
+            const regex = new RegExp(`\\b${k}\\b`, 'gi');
+            clean = clean.replace(regex, k);
+        });
+
         // Construct safe evaluation scope
         try {
             const varNames = Object.keys(this.env);
             const varValues = varNames.map(k => this.env[k]);
-            
-            // Standard Math functions available
+
             const scopeMath = {
                 abs: Math.abs,
                 sqrt: Math.sqrt,
@@ -585,12 +713,30 @@ class PseudocodeInterpreter {
         switch (instr.type) {
             case 'ASSIGN': {
                 const val = this.evalExpression(instr.expr);
-                this.env[instr.varName] = val;
+                const lowerVar = instr.varName.toLowerCase();
+                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
+                this.env[realKey] = val;
+                this.ip++;
+                if (this.onEnvChange) this.onEnvChange(this.env);
+                break;
+            }
+            case 'ASSIGN_ARRAY': {
+                const idx = this.evalExpression(instr.indexExpr);
+                const val = this.evalExpression(instr.expr);
+                const lowerArr = instr.arrName.toLowerCase();
+                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerArr) || instr.arrName;
+                if (!this.env[realKey] || typeof this.env[realKey] !== 'object') {
+                    this.env[realKey] = {};
+                }
+                this.env[realKey][idx] = val;
                 this.ip++;
                 if (this.onEnvChange) this.onEnvChange(this.env);
                 break;
             }
             case 'INPUT': {
+                const lowerVar = instr.varName.toLowerCase();
+                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
+
                 if (this.inputQueue.length > 0) {
                     const rawVal = this.inputQueue.shift();
                     let val = rawVal;
@@ -604,14 +750,14 @@ class PseudocodeInterpreter {
                             val = parseFloat(normalized);
                         }
                     }
-                    this.env[instr.varName] = val;
+                    this.env[realKey] = val;
                     this.ip++;
                     if (this.onEnvChange) this.onEnvChange(this.env);
                 } else {
                     // Need user input!
                     this.status = 'waiting_input';
-                    this.waitingForInput = instr.varName;
-                    return { done: false, waitingInput: true, varName: instr.varName, lineNum: curLine };
+                    this.waitingForInput = realKey;
+                    return { done: false, waitingInput: true, varName: realKey, lineNum: curLine };
                 }
                 break;
             }
@@ -641,7 +787,9 @@ class PseudocodeInterpreter {
                 break;
             }
             case 'FOR_CHECK': {
-                const curVal = this.env[instr.varName];
+                const lowerVar = instr.varName.toLowerCase();
+                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
+                const curVal = this.env[realKey];
                 const endVal = Number(this.evalExpression(instr.endExpr));
                 const stepVal = Number(this.evalExpression(instr.stepExpr));
                 const willContinue = stepVal >= 0 ? (curVal <= endVal) : (curVal >= endVal);
@@ -653,8 +801,10 @@ class PseudocodeInterpreter {
                 break;
             }
             case 'FOR_STEP': {
+                const lowerVar = instr.varName.toLowerCase();
+                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
                 const stepVal = Number(this.evalExpression(instr.stepExpr));
-                this.env[instr.varName] = (Number(this.env[instr.varName]) || 0) + stepVal;
+                this.env[realKey] = (Number(this.env[realKey]) || 0) + stepVal;
                 this.ip++;
                 if (this.onEnvChange) this.onEnvChange(this.env);
                 break;
@@ -679,13 +829,19 @@ class PseudocodeInterpreter {
     // Supply input when waiting_input
     provideInput(val) {
         if (this.status !== 'waiting_input' || !this.waitingForInput) return;
-        let parsedVal = val;
-        if (typeof val === 'string') {
-            const trimmed = val.trim();
-            const normalized = trimmed.replace(',', '.');
-            if (/^-?\d+$/.test(normalized)) parsedVal = parseInt(normalized, 10);
-            else if (/^-?\d+\.\d+$/.test(normalized)) parsedVal = parseFloat(normalized);
+        let str = String(val).trim();
+        // Support space-separated input buffering
+        const parts = str.split(/\s+/);
+        const firstVal = parts[0];
+        if (parts.length > 1) {
+            this.inputQueue.push(...parts.slice(1));
         }
+
+        let parsedVal = firstVal;
+        const normalized = firstVal.replace(',', '.');
+        if (/^-?\d+$/.test(normalized)) parsedVal = parseInt(normalized, 10);
+        else if (/^-?\d+\.\d+$/.test(normalized)) parsedVal = parseFloat(normalized);
+
         this.env[this.waitingForInput] = parsedVal;
         this.waitingForInput = null;
         this.status = 'running';
@@ -711,4 +867,9 @@ class PseudocodeInterpreter {
     }
 }
 
-window.PseudocodeInterpreter = PseudocodeInterpreter;
+if (typeof window !== 'undefined') {
+    window.PseudocodeInterpreter = PseudocodeInterpreter;
+}
+if (typeof module !== 'undefined') {
+    module.exports = { PseudocodeInterpreter };
+}

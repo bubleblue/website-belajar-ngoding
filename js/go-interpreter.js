@@ -533,9 +533,12 @@ class CodeTranspiler {
             let line = lines[i].trim();
             if (!line) continue;
 
+            // Strip trailing semicolon from statement lines
+            line = line.replace(/;\s*$/, '');
+
             // Comments
-            if (line.startsWith('//')) {
-                goLines.push('    ' + line);
+            if (line.startsWith('//') || line.startsWith('#')) {
+                goLines.push('    ' + line.replace(/^#/, '//'));
                 continue;
             }
 
@@ -547,7 +550,7 @@ class CodeTranspiler {
                 inKamus = true;
                 continue;
             }
-            if (/^(algoritma|deskripsi)\b/i.test(line)) {
+            if (/^(algoritma|deskripsi|begin|mulai|start)\b/i.test(line)) {
                 inKamus = false;
                 continue;
             }
@@ -556,11 +559,11 @@ class CodeTranspiler {
             }
 
             // Variable declaration in kamus
-            if (inKamus || line.includes(':')) {
+            if (inKamus || (!line.includes('<-') && line.includes(':')) || /^var\b/i.test(line)) {
                 if (line.includes(':')) {
                     const [varsPart, typePart] = line.split(':');
                     const vars = varsPart.replace(/^var\b/i, '').split(',').map(v => v.trim()).filter(Boolean);
-                    const rawType = typePart.trim().toLowerCase();
+                    const rawType = (typePart || '').trim().toLowerCase();
                     let goType = 'int';
                     if (rawType.includes('real') || rawType.includes('float') || rawType.includes('desimal') || rawType.includes('pecahan')) {
                         goType = 'float64';
@@ -576,20 +579,20 @@ class CodeTranspiler {
                 }
             }
 
-            // Input: input(x) or input(a, b)
-            if (/^(?:input|baca|masukan)\s*\(/i.test(line)) {
-                const match = line.match(/^(?:input|baca|masukan)\s*\((.+?)\)/i);
+            // Input: input(x) or input(a, b) or read/readln/scan
+            if (/^(?:input|baca|masukan|read|readln|scan|scanln)\s*\(/i.test(line)) {
+                const match = line.match(/^(?:input|baca|masukan|read|readln|scan|scanln)\s*\((.+?)\)/i);
                 if (match) {
-                    const args = match[1].split(',').map(s => s.trim());
+                    const args = match[1].split(',').map(s => s.trim().replace(/^&/, ''));
                     const scanArgs = args.map(a => `&${a}`).join(', ');
                     goLines.push(`    fmt.Scan(${scanArgs})`);
                     continue;
                 }
             }
 
-            // Output: output(...)
-            if (/^(?:output|cetak|tulis|tampilkan)\s*\(/i.test(line)) {
-                const match = line.match(/^(?:output|cetak|tulis|tampilkan)\s*\((.+?)\)/i);
+            // Output: output(...) or write/writeln/print/println
+            if (/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\(/i.test(line)) {
+                const match = line.match(/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\((.+?)\)/i);
                 if (match) {
                     goLines.push(`    fmt.Println(${match[1]})`);
                     continue;
@@ -609,27 +612,47 @@ class CodeTranspiler {
                 continue;
             }
 
-            if (/^(?:lainnya|else|selain\s+itu|selainitu)$/i.test(line)) {
+            if (/^(?:lainnya|else|selain\s*itu|selainitu)$/i.test(line)) {
                 goLines.push('    } else {');
                 continue;
             }
 
-            if (/^(?:selesai_jika|endif|selesai)$/i.test(line)) {
+            if (/^(?:selesai_jika|selesai\s*jika|endif|end\s*if)$/i.test(line)) {
                 goLines.push('    }');
                 continue;
             }
 
-            // For loop: untuk i <- 1 sampai n lakukan
-            if (/^(?:untuk|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=)\s*(.+?)\s+(?:sampai|to)\s+(.+?)(?:\s+(?:lakukan|do))?$/i.test(line)) {
-                const match = line.match(/^(?:untuk|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=)\s*(.+?)\s+(?:sampai|to)\s+(.+?)(?:\s+(?:lakukan|do))?$/i);
+            // For loop: untuk i <- 1 sampai n lakukan (or downto)
+            if (/^(?:untuk|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=|FROM)\s*(.+?)\s+(?:sampai|to|downto|turun\s*ke)\s+(.+?)(?:\s+(?:lakukan|do))?$/i.test(line)) {
+                const isDown = /\b(?:downto|turun)\b/i.test(line);
+                const match = line.match(/^(?:untuk|for)\s+([a-zA-Z0-9_]+)\s*(?:<-|:=|=|FROM)\s*(.+?)\s+(?:sampai|to|downto|turun\s*ke)\s+(.+?)(?:\s+(?:lakukan|do))?$/i);
                 const v = match[1];
-                const start = match[2];
+                const start = match[2].trim();
                 let end = match[3].replace(/\s+(lakukan|do)$/i, '').trim();
-                goLines.push(`    for ${v} := ${start}; ${v} <= ${end}; ${v}++ {`);
+                if (isDown) {
+                    goLines.push(`    for ${v} := ${start}; ${v} >= ${end}; ${v}-- {`);
+                } else {
+                    goLines.push(`    for ${v} := ${start}; ${v} <= ${end}; ${v}++ {`);
+                }
                 continue;
             }
 
-            if (/^(?:selesai_untuk|endfor)$/i.test(line)) {
+            if (/^(?:selesai_untuk|selesai\s*untuk|endfor|end\s*for|next(\s+[a-zA-Z0-9_]+)?)$/i.test(line)) {
+                goLines.push('    }');
+                continue;
+            }
+
+            // Repeat ... Until
+            if (/^(?:repeat|ulangi)$/i.test(line)) {
+                goLines.push('    for {');
+                continue;
+            }
+            if (/^(?:until|sampai)\s+(.+)$/i.test(line)) {
+                const match = line.match(/^(?:until|sampai)\s+(.+)$/i);
+                let cond = match[1].trim();
+                cond = cond.replace(/\bmod\b/gi, '%').replace(/\band\b|\bdan\b/gi, '&&').replace(/\bor\b|\batau\b/gi, '||');
+                cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
+                goLines.push(`        if ${cond} { break }`);
                 goLines.push('    }');
                 continue;
             }
@@ -641,16 +664,24 @@ class CodeTranspiler {
                 cond = cond.replace(/\bmod\b/gi, '%');
                 cond = cond.replace(/\band\b|\bdan\b/gi, '&&');
                 cond = cond.replace(/\bor\b|\batau\b/gi, '||');
+                cond = cond.replace(/<>/g, '!=');
+                cond = cond.replace(/(?<![<>=!])=(?![=])/g, '==');
                 goLines.push(`    for ${cond} {`);
                 continue;
             }
 
-            if (/^(?:selesai_selama|endwhile)$/i.test(line)) {
+            if (/^(?:selesai_selama|selesai\s*selama|endwhile|end\s*while)$/i.test(line)) {
                 goLines.push('    }');
                 continue;
             }
 
-            // Assignment: a <- b or a = b
+            // Increment / Decrement
+            if (/^[a-zA-Z0-9_]+\s*(\+\+|\-\-)$/.test(line)) {
+                goLines.push('    ' + line);
+                continue;
+            }
+
+            // Assignment: a <- b or a := b or a = b
             if (line.includes('<-') || line.includes(':=')) {
                 let [left, right] = line.split(/<-|:=/).map(s => s.trim());
                 right = right.replace(/\bmod\b/gi, '%');
@@ -675,29 +706,45 @@ class CodeTranspiler {
         pseudoLines.push('program dari_golang');
         pseudoLines.push('kamus');
 
+        const declaredVars = new Set();
         const bodyLines = [];
+        const blockStack = []; // stores 'for' | 'if' | 'while' | 'repeat'
 
         for (let rawLine of lines) {
             let line = rawLine.trim();
             if (!line || line.startsWith('//') || /^package\b|^import\b|^func\s+main/i.test(line)) {
                 continue;
             }
-            if (line === '}') continue;
 
-            // Var declaration
+            // Closing brace }
+            if (line === '}' || line.startsWith('}')) {
+                const closing = blockStack.pop();
+                if (closing === 'for') {
+                    bodyLines.push('    selesai_untuk');
+                } else if (closing === 'if') {
+                    bodyLines.push('    selesai_jika');
+                } else if (closing === 'while') {
+                    bodyLines.push('    selesai_selama');
+                }
+                if (line === '}') continue;
+                line = line.replace(/^\}\s*/, '');
+            }
+
+            // Var declaration: var a, b int or var x float64
             const varMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+)\s+(int|int64|int32|string|float64|float32|bool)/i);
             if (varMatch) {
                 const names = varMatch[1].trim();
                 const typeStr = varMatch[2].toLowerCase();
-                let pseudoType = 'bilangan';
-                if (typeStr.includes('float')) pseudoType = 'desimal';
-                else if (typeStr === 'string') pseudoType = 'teks';
+                let pseudoType = 'integer';
+                if (typeStr.includes('float')) pseudoType = 'real';
+                else if (typeStr === 'string') pseudoType = 'string';
                 else if (typeStr === 'bool') pseudoType = 'boolean';
+                names.split(',').forEach(n => declaredVars.add(n.trim()));
                 pseudoLines.push(`    ${names} : ${pseudoType}`);
                 continue;
             }
 
-            // fmt.Scan(&x)
+            // fmt.Scan / fmt.Scanln / fmt.Scanf
             const scanMatch = line.match(/fmt\.(?:Scan|Scanln|Scanf)\s*\((.+?)\)/);
             if (scanMatch) {
                 const args = scanMatch[1].split(',').map(s => s.trim().replace(/^&/, ''));
@@ -715,30 +762,55 @@ class CodeTranspiler {
             // for loop: for i := 1; i <= n; i++ {
             const forMatch = line.match(/for\s+([a-zA-Z0-9_]+)\s*:=\s*(.+?);\s*\1\s*<=\s*(.+?);\s*\1\+\+\s*\{/);
             if (forMatch) {
-                bodyLines.push(`    untuk ${forMatch[1]} <- ${forMatch[2]} sampai ${forMatch[3]} lakukan`);
+                const loopVar = forMatch[1];
+                if (!declaredVars.has(loopVar)) {
+                    declaredVars.add(loopVar);
+                    pseudoLines.push(`    ${loopVar} : integer`);
+                }
+                bodyLines.push(`    untuk ${loopVar} <- ${forMatch[2].trim()} sampai ${forMatch[3].trim()} lakukan`);
+                blockStack.push('for');
                 continue;
             }
 
-            // if
-            const ifMatch = line.match(/if\s+(.+?)\s*\{/);
+            // while-style for in Go: for cond {
+            const whileMatch = line.match(/^for\s+([^{]+)\s*\{/);
+            if (whileMatch && !line.includes(';')) {
+                let cond = whileMatch[1].trim();
+                bodyLines.push(`    selama ${cond} lakukan`);
+                blockStack.push('while');
+                continue;
+            }
+
+            // if statement: if cond {
+            const ifMatch = line.match(/^if\s+([^{]+)\s*\{/);
             if (ifMatch) {
-                bodyLines.push(`    jika ${ifMatch[1]} maka`);
+                bodyLines.push(`    jika ${ifMatch[1].trim()} maka`);
+                blockStack.push('if');
                 continue;
             }
 
-            if (line === '} else {' || line === 'else {') {
+            if (/^else\s*\{/.test(line)) {
                 bodyLines.push('    lainnya');
+                blockStack.push('if');
                 continue;
             }
 
             // Assignment
-            if (line.includes('=')) {
+            if (line.includes('=') && !line.includes('==') && !line.includes('<=') && !line.includes('>=')) {
                 line = line.replace(':=', '<-').replace('=', '<-');
                 bodyLines.push('    ' + line);
                 continue;
             }
 
             bodyLines.push('    ' + line);
+        }
+
+        // Flush any unclosed blocks
+        while (blockStack.length > 0) {
+            const closing = blockStack.pop();
+            if (closing === 'for') bodyLines.push('    selesai_untuk');
+            else if (closing === 'if') bodyLines.push('    selesai_jika');
+            else if (closing === 'while') bodyLines.push('    selesai_selama');
         }
 
         pseudoLines.push('algoritma');
