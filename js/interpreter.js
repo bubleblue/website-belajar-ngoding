@@ -20,6 +20,7 @@ class PseudocodeInterpreter {
             this.functions = parent.functions;
             this.procedures = parent.procedures;
             this.constants = { ...parent.constants };
+            this.types = { ...parent.types };
             this.onOutput = parent.onOutput;
             this.inputQueue = parent.inputQueue;
             this.output = parent.output;
@@ -28,6 +29,7 @@ class PseudocodeInterpreter {
             this.functions = {};
             this.procedures = {};
             this.constants = {};
+            this.types = {};
         }
     }
 
@@ -36,6 +38,7 @@ class PseudocodeInterpreter {
         this.instructions = [];
         this.ip = 0; // instruction pointer
         this.env = {}; // variable storage
+        this.types = {}; // variable type declarations (integer, real, string, char, boolean, array)
         this.output = [];
         this.inputQueue = [];
         this.waitingForInput = null; // callback or varName when waiting for user
@@ -356,7 +359,8 @@ class PseudocodeInterpreter {
                 const type = arrayDeclMatch[4].toLowerCase();
 
                 let defaultVal = 0;
-                if (type.includes('string') || type.includes('char') || type.includes('teks')) defaultVal = '';
+                if (type.includes('string') || type.includes('teks')) defaultVal = '';
+                else if (type.includes('char') || type.includes('karakter')) defaultVal = ' ';
                 else if (type.includes('bool') || type.includes('logika')) defaultVal = false;
                 else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
 
@@ -366,6 +370,7 @@ class PseudocodeInterpreter {
                         arrObj[idx] = defaultVal;
                     }
                     this.env[name] = arrObj;
+                    this.types[name.toLowerCase()] = 'array';
                 });
                 continue;
             }
@@ -381,26 +386,52 @@ class PseudocodeInterpreter {
                 const type = (typePart || '').trim().toLowerCase();
                 vars.forEach(v => {
                     let defaultVal = 0;
-                    if (type.includes('string') || type.includes('teks') || type.includes('char')) defaultVal = '';
-                    else if (type.includes('bool')) defaultVal = false;
-                    else if (type.includes('real') || type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
-                    else if (type.includes('array') || type.includes('larik')) defaultVal = {};
+                    let declaredType = 'integer';
+                    if (type.includes('string') || type.includes('teks')) {
+                        defaultVal = '';
+                        declaredType = 'string';
+                    } else if (type.includes('char') || type.includes('karakter')) {
+                        defaultVal = ' ';
+                        declaredType = 'char';
+                    } else if (type.includes('bool') || type.includes('logika')) {
+                        defaultVal = false;
+                        declaredType = 'boolean';
+                    } else if (type.includes('real') || type.includes('float') || type.includes('desimal')) {
+                        defaultVal = 0.0;
+                        declaredType = 'real';
+                    } else if (type.includes('array') || type.includes('larik')) {
+                        defaultVal = {};
+                        declaredType = 'array';
+                    }
                     this.env[v] = defaultVal;
+                    this.types[v.toLowerCase()] = declaredType;
                 });
                 continue;
             }
 
             // Go-style declaration fallback: var a, b int
-            const goDeclMatch = text.match(/^VAR\s+([a-zA-Z0-9_,\s]+)\s+(int|int32|int64|float|float32|float64|string|bool|bilangan|desimal|teks|boolean)\b/i);
+            const goDeclMatch = text.match(/^VAR\s+([a-zA-Z0-9_,\s]+)\s+(int|int32|int64|float|float32|float64|string|bool|bilangan|desimal|teks|boolean|byte|rune)\b/i);
             if (goDeclMatch) {
                 const vars = goDeclMatch[1].split(',').map(v => v.trim()).filter(Boolean);
                 const type = goDeclMatch[2].toLowerCase();
                 vars.forEach(v => {
                     let defaultVal = 0;
-                    if (type.includes('string') || type.includes('teks')) defaultVal = '';
-                    else if (type.includes('bool')) defaultVal = false;
-                    else if (type.includes('float') || type.includes('desimal')) defaultVal = 0.0;
+                    let declaredType = 'integer';
+                    if (type.includes('string') || type.includes('teks')) {
+                        defaultVal = '';
+                        declaredType = 'string';
+                    } else if (type.includes('bool')) {
+                        defaultVal = false;
+                        declaredType = 'boolean';
+                    } else if (type.includes('float') || type.includes('desimal')) {
+                        defaultVal = 0.0;
+                        declaredType = 'real';
+                    } else if (type === 'byte' || type === 'rune') {
+                        defaultVal = ' ';
+                        declaredType = 'char';
+                    }
                     this.env[v] = defaultVal;
+                    this.types[v.toLowerCase()] = declaredType;
                 });
                 continue;
             }
@@ -865,8 +896,56 @@ class PseudocodeInterpreter {
 
         // Variable target: x
         const lowerVar = trimmed.toLowerCase();
+        if (this.constants[lowerVar] !== undefined) {
+            throw new Error(`Tidak dapat mengubah nilai konstanta '${trimmed}'`);
+        }
         const realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || trimmed;
-        this.env[realKey] = val;
+        const targetType = this.types[lowerVar];
+
+        let finalVal = val;
+        if (targetType === 'char') {
+            if (typeof val === 'number') {
+                finalVal = String.fromCharCode(Math.round(val));
+            } else if (typeof val === 'string') {
+                finalVal = val.replace(/^['"]|['"]$/g, '').charAt(0) || ' ';
+            }
+        } else if (targetType === 'integer') {
+            if (typeof val === 'string' && val.length === 1 && isNaN(Number(val))) {
+                finalVal = val.charCodeAt(0);
+            } else {
+                const n = Number(val);
+                finalVal = isNaN(n) ? 0 : Math.trunc(n);
+            }
+        } else if (targetType === 'real') {
+            finalVal = Number(val) || 0.0;
+        } else if (targetType === 'boolean') {
+            finalVal = Boolean(val);
+        } else if (targetType === 'string') {
+            finalVal = String(val);
+        }
+
+        this.env[realKey] = finalVal;
+    }
+
+    // Smart string joining for OUTPUT arguments (adds spaces between arguments when appropriate)
+    smartJoin(parts) {
+        let lineOutput = '';
+        for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            if (i === 0) {
+                lineOutput += part;
+            } else {
+                const prev = parts[i - 1];
+                if (prev.endsWith(' ') || part.startsWith(' ')) {
+                    lineOutput += part;
+                } else if (/^[.,;:!?]/.test(part)) {
+                    lineOutput += part;
+                } else {
+                    lineOutput += ' ' + part;
+                }
+            }
+        }
+        return lineOutput;
     }
 
     // Evaluate an expression string with variable context, functions, and math
@@ -877,6 +956,21 @@ class PseudocodeInterpreter {
 
         // Strip trailing semicolon if present
         clean = clean.replace(/;\s*$/, '');
+
+        // Standalone variable lookup (preserves exact env value for strings/chars/arrays)
+        const lowerClean = clean.toLowerCase();
+        const standaloneKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerClean);
+        if (standaloneKey && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(clean)) {
+            return this.env[standaloneKey];
+        }
+
+        // Replace single-character literals in single quotes with their ASCII char code
+        clean = clean.replace(/'([^'\\]|\\.)'/g, (match, ch) => {
+            if (ch.length === 1) {
+                return String(ch.charCodeAt(0));
+            }
+            return match;
+        });
 
         // 1. Strings replacement placeholders to prevent keyword replacements inside strings
         const stringLiterals = [];
@@ -900,9 +994,9 @@ class PseudocodeInterpreter {
         clean = clean.replace(/\bNOT\b/gi, '!');
         clean = clean.replace(/\bBUKAN\b/gi, '!');
 
-        // Comparison operators: = into === (except <=, >=, !=, ==)
+        // Comparison operators: = into == (except <=, >=, !=, ==)
         clean = clean.replace(/<>/g, '!=');
-        clean = clean.replace(/(?<![<>=!])=(?![=])/g, '===');
+        clean = clean.replace(/(?<![<>=!])=(?![=])/g, '==');
 
         // Boolean values
         clean = clean.replace(/\b(BENAR|TRUE)\b/gi, 'true');
@@ -923,7 +1017,18 @@ class PseudocodeInterpreter {
         // Construct safe evaluation scope with variables and user functions
         try {
             const varNames = Object.keys(this.env);
-            const varValues = varNames.map(k => this.env[k]);
+            const varValues = varNames.map(k => {
+                const val = this.env[k];
+                const type = this.types[k.toLowerCase()];
+                if (type === 'char') {
+                    if (typeof val === 'string' && val.length > 0) {
+                        return val.charCodeAt(0);
+                    } else if (typeof val === 'number') {
+                        return val;
+                    }
+                }
+                return val;
+            });
 
             const funcNames = Object.keys(this.functions).map(k => this.functions[k].name);
             const funcValues = funcNames.map(fnName => (...args) => this.callFunction(fnName, args));
@@ -1037,13 +1142,8 @@ class PseudocodeInterpreter {
                 break;
             }
             case 'ASSIGN': {
-                const lowerVar = instr.varName.toLowerCase();
-                if (this.constants[lowerVar] !== undefined) {
-                    throw new Error(`Tidak dapat mengubah nilai konstanta '${instr.varName}' di baris ${curLine}`);
-                }
                 const val = this.evalExpression(instr.expr);
-                let realKey = Object.keys(this.env).find(k => k.toLowerCase() === lowerVar) || instr.varName;
-                this.env[realKey] = val;
+                this.assignTarget(instr.varName, val);
                 this.ip++;
                 if (this.onEnvChange) this.onEnvChange(this.env);
                 break;
@@ -1093,7 +1193,7 @@ class PseudocodeInterpreter {
                     const val = this.evalExpression(arg);
                     return val === undefined ? '' : String(val);
                 });
-                const lineOutput = evaluatedParts.join('');
+                const lineOutput = this.smartJoin(evaluatedParts);
                 this.output.push(lineOutput);
                 this.ip++;
                 if (this.onOutput) this.onOutput(lineOutput);

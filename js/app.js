@@ -2031,7 +2031,7 @@ endprogram`;
     // =========================================================================
     // Console & Live Watch Utilities
     // =========================================================================
-    function updateVarTable(env) {
+    function updateVarTable(env, types = {}) {
         const keys = Object.keys(env);
         if (keys.length === 0) {
             resetVarTable();
@@ -2041,7 +2041,15 @@ endprogram`;
         elements.varTableBody.innerHTML = '';
         keys.forEach(k => {
             const val = env[k];
-            const type = typeof val === 'number' ? 'angka' : typeof val === 'boolean' ? 'boolean' : 'string';
+            const declared = (types && types[k.toLowerCase()]) || '';
+            let type = declared;
+            if (!type) {
+                type = typeof val === 'number' ? 'angka' : typeof val === 'boolean' ? 'boolean' : 'string';
+            } else if (type === 'integer') {
+                type = 'angka';
+            } else if (type === 'real') {
+                type = 'desimal';
+            }
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td class="var-name">${k}</td>
@@ -2231,7 +2239,7 @@ endprogram`;
         printConsole('▶ Memulai eksekusi pseudocode...', 'system');
         interp.initExecution([]);
         interp.onOutput = (line) => printConsole(line, 'output');
-        interp.onEnvChange = (env) => updateVarTable(env);
+        interp.onEnvChange = (env) => updateVarTable(env, interp.types);
 
         try {
             while (interp.status === 'running') {
@@ -2248,7 +2256,7 @@ endprogram`;
             }
 
             printConsole(`✔ Selesai (${interp.stepCount} langkah).`, 'system');
-            updateVarTable(interp.env);
+            updateVarTable(interp.env, interp.types);
             if (window.soundManager) window.soundManager.playTap();
             showNotification('Kode Berhasil', `Program selesai (${interp.stepCount} langkah).`, 'success', 'check-circle-2');
         } catch (err) {
@@ -2295,7 +2303,7 @@ endprogram`;
 
         state.interpreter.initExecution([]);
         state.interpreter.onOutput = (line) => printConsole(line, 'output');
-        state.interpreter.onEnvChange = (env) => updateVarTable(env);
+        state.interpreter.onEnvChange = (env) => updateVarTable(env, state.interpreter.types);
 
         state.steppingActive = true;
         elements.btnStartStep.classList.add('is-hidden');

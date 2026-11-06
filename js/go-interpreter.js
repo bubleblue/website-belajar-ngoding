@@ -15,8 +15,18 @@ class GoInterpreter {
 
     // Transpile standard Go code to secure async JS
     transpile(goCode) {
+        this.byteVars = new Set();
+
+        // Transform single-character rune literals like 'a' or 'z' into ASCII numbers
+        let cleanCode = goCode.replace(/'([^'\\]|\\.)'/g, (match, ch) => {
+            if (ch.length === 1) {
+                return String(ch.charCodeAt(0));
+            }
+            return match;
+        });
+
         // Normalize spaced types like 'float 64' or 'int 64'
-        let cleanCode = goCode
+        cleanCode = cleanCode
             .replace(/\bfloat\s+64\b/g, 'float64')
             .replace(/\bfloat\s+32\b/g, 'float32')
             .replace(/\bint\s+64\b/g, 'int64')
@@ -132,6 +142,9 @@ class GoInterpreter {
             if (varTypedMatch) {
                 const names = varTypedMatch[1].split(',').map(v => v.trim()).filter(Boolean);
                 const type = varTypedMatch[2];
+                if (type === 'byte' || type === 'rune') {
+                    names.forEach(n => this.byteVars.add(n));
+                }
                 let defaultVal = '0';
                 if (type === 'string') defaultVal = '""';
                 else if (type === 'bool') defaultVal = 'false';
@@ -357,13 +370,21 @@ class GoInterpreter {
                 }
             },
             Scan: async (varName = 'input') => {
+                let rawVal;
                 if (inputQueue && inputQueue.length > 0) {
-                    return this.parseInputVal(inputQueue.shift());
+                    rawVal = inputQueue.shift();
+                } else if (this.terminal) {
+                    this.status = 'waiting_input';
+                    rawVal = await this.terminal.promptInput(`[input] ${varName}: `);
+                    this.status = 'running';
+                } else {
+                    return 0;
                 }
-                if (!this.terminal) return 0;
-                this.status = 'waiting_input';
-                const rawVal = await this.terminal.promptInput(`[input] ${varName}: `);
-                this.status = 'running';
+                if (this.byteVars && this.byteVars.has(varName)) {
+                    if (typeof rawVal === 'string' && rawVal.length > 0 && isNaN(Number(rawVal))) {
+                        return rawVal.charCodeAt(0);
+                    }
+                }
                 return this.parseInputVal(rawVal);
             },
             ScanMultiple: async (count, names = []) => {
@@ -401,9 +422,9 @@ class GoInterpreter {
         const _uint32 = _uint;
         const _uint16 = _uint;
         const _uint8 = _uint;
-        const _byte = (v) => _int(v) & 0xFF;
-        const _rune = _int;
-        const _string = (v) => String(v);
+        const _byte = (v) => typeof v === 'string' ? v.charCodeAt(0) & 0xFF : _int(v) & 0xFF;
+        const _rune = (v) => typeof v === 'string' ? v.charCodeAt(0) : _int(v);
+        const _string = (v) => typeof v === 'number' ? String.fromCharCode(v) : String(v);
         const _bool = (v) => Boolean(v);
 
         const _len = (v) => {
@@ -557,6 +578,7 @@ class CodeTranspiler {
         let inKamus = false;
         let inSub = false;
         const declaredVars = new Set();
+        const declaredCharVars = new Set();
 
         const appendGo = (str) => {
             if (inSub) {
@@ -664,9 +686,15 @@ class CodeTranspiler {
                 if (line.includes(':')) {
                     const [varsPart, typePart] = line.split(':');
                     const vars = varsPart.replace(/^var\b/i, '').split(',').map(v => v.trim()).filter(Boolean);
+                    const rawType = (typePart || '').trim().toLowerCase();
                     const goType = CodeTranspiler.pseudoToGoType(typePart);
 
-                    vars.forEach(v => declaredVars.add(v));
+                    vars.forEach(v => {
+                        declaredVars.add(v);
+                        if (rawType.includes('char') || rawType.includes('karakter')) {
+                            declaredCharVars.add(v);
+                        }
+                    });
                     appendGo(`    var ${vars.join(', ')} ${goType}`);
                     continue;
                 }
@@ -687,7 +715,10 @@ class CodeTranspiler {
             if (/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\(/i.test(line)) {
                 const match = line.match(/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\((.+?)\)/i);
                 if (match) {
-                    appendGo(`    fmt.Println(${match[1]})`);
+                    const rawArgs = match[1];
+                    const args = rawArgs.split(',').map(s => s.trim()).filter(Boolean);
+                    const goArgs = args.map(a => declaredCharVars.has(a) ? `string(${a})` : a);
+                    appendGo(`    fmt.Println(${goArgs.join(', ')})`);
                     continue;
                 }
             }
@@ -784,10 +815,16 @@ class CodeTranspiler {
             }
 
             // Assignment: a <- b or a := b or a = b
-            if (line.includes('<-') || line.includes(':=')) {
-                let [left, right] = line.split(/<-|:=/).map(s => s.trim());
+            const assignMatch = line.match(/^([a-zA-Z0-9_]+(?:\s*\[.+?\])?)\s*(?:<-|:=|=)\s*(.+)$/);
+            if (assignMatch && !line.startsWith('if') && !line.startsWith('jika') && !line.startsWith('for') && !line.startsWith('untuk') && !line.startsWith('while') && !line.startsWith('selama')) {
+                const left = assignMatch[1].trim();
+                let right = assignMatch[2].trim();
                 right = right.replace(/\bmod\b/gi, '%');
                 right = right.replace(/\bdiv\b/gi, '/');
+                right = right.replace(/\band\b|\bdan\b/gi, '&&');
+                right = right.replace(/\bor\b|\batau\b/gi, '||');
+                right = right.replace(/\bnot\b|\bbukan\b/gi, '!');
+                right = right.replace(/<>/g, '!=');
                 appendGo(`    ${left} = ${right}`);
                 continue;
             }
