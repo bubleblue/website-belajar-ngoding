@@ -239,10 +239,20 @@ class GoInterpreter {
                 continue;
             }
 
-            // else if
-            const elifMatch = line.match(/^else\s+if\s+([^{]+)\s*\{/);
+            // else if / } else if
+            const elifMatch = line.match(/^(?:\}\s*)?else\s+if\s+([^{]+)\s*\{/);
             if (elifMatch) {
-                line = `else if (${elifMatch[1].trim()}) {`;
+                const prefix = line.startsWith('}') ? '} ' : '';
+                line = `${prefix}else if (${elifMatch[1].trim()}) {`;
+                jsLines.push(line);
+                continue;
+            }
+
+            // else / } else
+            const elseMatch = line.match(/^(?:\}\s*)?else\s*\{/);
+            if (elseMatch) {
+                const prefix = line.startsWith('}') ? '} ' : '';
+                line = `${prefix}else {`;
                 jsLines.push(line);
                 continue;
             }
@@ -904,8 +914,8 @@ class CodeTranspiler {
             }
         };
 
-        for (let rawLine of lines) {
-            let line = rawLine.trim();
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i].trim();
             if (!line || line.startsWith('//') || /^package\b|^import\b/i.test(line)) {
                 continue;
             }
@@ -937,8 +947,40 @@ class CodeTranspiler {
                 continue;
             }
 
+            // else if / } else if
+            const elifMatch = line.match(/^(?:\}\s*)?else\s+if\s+([^{]+)\s*\{/);
+            if (elifMatch) {
+                appendBody(`    lainnya jika ${elifMatch[1].trim()} maka`);
+                continue;
+            }
+
+            // else / } else
+            const elseMatch = line.match(/^(?:\}\s*)?else\s*\{/);
+            if (elseMatch) {
+                appendBody('    lainnya');
+                continue;
+            }
+
             // Closing brace }
             if (line === '}' || line.startsWith('}')) {
+                // If the current block is 'if', check if next non-empty code line starts with else
+                if (blockStack[blockStack.length - 1] === 'if') {
+                    let hasElseComing = false;
+                    for (let j = i + 1; j < lines.length; j++) {
+                        const nextTrim = lines[j].trim();
+                        if (!nextTrim || nextTrim.startsWith('//')) continue;
+                        if (/^(?:\}\s*)?else\b/i.test(nextTrim)) {
+                            hasElseComing = true;
+                        }
+                        break;
+                    }
+                    if (hasElseComing) {
+                        if (line === '}') continue;
+                        line = line.replace(/^\}\s*/, '');
+                        if (!line) continue;
+                    }
+                }
+
                 const closing = blockStack.pop();
                 if (closing === 'for') {
                     appendBody('    selesai_untuk');
@@ -1037,9 +1079,26 @@ class CodeTranspiler {
                 continue;
             }
 
-            if (/^else\s*\{/.test(line)) {
-                appendBody('    lainnya');
-                blockStack.push('if');
+            // Short variable declaration: varName := expr (e.g. nilai := 75)
+            const shortMatch = line.match(/^([a-zA-Z0-9_]+)\s*:=\s*(.+)$/);
+            if (shortMatch) {
+                const varName = shortMatch[1].trim();
+                const valExpr = shortMatch[2].trim();
+                if (!declaredVars.has(varName)) {
+                    declaredVars.add(varName);
+                    let pType = 'integer';
+                    if (/^["']/.test(valExpr)) {
+                        pType = valExpr.length === 3 && valExpr[0] === "'" ? 'char' : 'string';
+                    } else if (/^(?:true|false)$/i.test(valExpr)) {
+                        pType = 'boolean';
+                    } else if (/^\d+\.\d+$/.test(valExpr)) {
+                        pType = 'real';
+                    } else if (/^\d+$/.test(valExpr)) {
+                        pType = 'integer';
+                    }
+                    pseudoLines.push(`    ${varName} : ${pType}`);
+                }
+                appendBody(`    ${varName} <- ${valExpr}`);
                 continue;
             }
 
