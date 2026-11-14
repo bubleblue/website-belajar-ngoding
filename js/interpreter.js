@@ -530,8 +530,8 @@ class PseudocodeInterpreter {
 
             // FOR / UNTUK loop (Supports TO, SAMPAI, DOWNTO, TURUN KE, STEP, LANGKAH, DO, LAKUKAN)
             if (/^(FOR|UNTUK)\b/i.test(upper)) {
-                const isDownTo = /\b(?:DOWNTO|TURUN\s*KE|TURUN)\b/i.test(text);
-                const forMatch = text.match(/^(?:FOR|UNTUK)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=|FROM)\s*(.+?)\s+(?:TO|SAMPAI|DOWNTO|TURUN\s*KE|TURUN)\s+(.+?)(?:\s+(?:STEP|LANGKAH)\s+(.+?))?(?:\s+(?:DO|LAKUKAN))?$/i);
+                const isDownTo = /\b(?:DOWNTO|TURUN[\s_]*KE|TURUN)\b/i.test(text);
+                const forMatch = text.match(/^(?:FOR|UNTUK)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:<-|:=|=|FROM)\s*(.+?)\s+(?:TO|SAMPAI|DOWNTO|TURUN[\s_]*KE|TURUN)\s+(.+?)(?:\s+(?:STEP|LANGKAH)\s+(.+?))?(?:\s+(?:DO|LAKUKAN))?$/i);
                 if (!forMatch) {
                     throw new Error(`Sintaks FOR tidak valid di baris ${lineNum}. Contoh: FOR i <- 1 TO 10 DO`);
                 }
@@ -917,7 +917,8 @@ class PseudocodeInterpreter {
                 finalVal = isNaN(n) ? 0 : Math.trunc(n);
             }
         } else if (targetType === 'real') {
-            finalVal = Number(val) || 0.0;
+            const num = Number(val);
+            finalVal = isNaN(num) ? 0.0 : num;
         } else if (targetType === 'boolean') {
             finalVal = Boolean(val);
         } else if (targetType === 'string') {
@@ -1008,7 +1009,7 @@ class PseudocodeInterpreter {
         });
 
         // Case-insensitive variable resolution
-        const envKeys = Object.keys(this.env);
+        const envKeys = Object.keys(this.env).sort((a, b) => b.length - a.length);
         envKeys.forEach(k => {
             const regex = new RegExp(`\\b${k}\\b`, 'gi');
             clean = clean.replace(regex, k);
@@ -1040,11 +1041,23 @@ class PseudocodeInterpreter {
                 floor: Math.floor,
                 ceil: Math.ceil,
                 min: Math.min,
-                max: Math.max
+                max: Math.max,
+                pow: Math.pow,
+                trunc: Math.trunc,
+                sin: Math.sin,
+                cos: Math.cos,
+                tan: Math.tan,
+                log: Math.log,
+                log10: Math.log10,
+                PI: Math.PI,
+                E: Math.E
             };
 
-            const scopeKeys = [...varNames, ...funcNames, 'Math'];
-            const scopeVals = [...varValues, ...funcValues, Math];
+            const mathKeys = Object.keys(scopeMath);
+            const mathVals = Object.values(scopeMath);
+
+            const scopeKeys = [...varNames, ...funcNames, ...mathKeys, 'Math'];
+            const scopeVals = [...varValues, ...funcValues, ...mathVals, Math];
 
             const fn = new Function(...scopeKeys, `"use strict"; return (${clean});`);
             const res = fn(...scopeVals);
@@ -1218,7 +1231,10 @@ class PseudocodeInterpreter {
                 const curVal = this.env[realKey];
                 const endVal = Number(this.evalExpression(instr.endExpr));
                 const stepVal = Number(this.evalExpression(instr.stepExpr));
-                const willContinue = stepVal >= 0 ? (curVal <= endVal) : (curVal >= endVal);
+                if (stepVal === 0) {
+                    throw new Error(`Nilai STEP tidak boleh 0 pada perulangan FOR baris ${instr.lineNum}`);
+                }
+                const willContinue = stepVal > 0 ? (curVal <= endVal) : (curVal >= endVal);
                 if (!willContinue) {
                     this.ip = instr.target;
                 } else {

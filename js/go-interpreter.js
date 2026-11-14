@@ -52,6 +52,9 @@ class GoInterpreter {
                 continue;
             }
 
+            // Convert Go slice/array literals e.g. []int{1, 2, 3} to JS arrays [1, 2, 3]
+            line = line.replace(/(?:\[\d*\](?:int\d*|uint\d*|float\d*|string|bool|byte|rune|any))\s*\{([^}]*)\}/g, '[$1]');
+
             // Strip package statement
             if (/^package\s+/i.test(line)) continue;
 
@@ -184,7 +187,7 @@ class GoInterpreter {
             }
 
             // for C-style: for i := 0; i < n; i++ {
-            const forCStyle = line.match(/^for\s+([a-zA-Z0-9_]+)\s*:=\s*(.+?);\s*(.+?);\s*([a-zA-Z0-9_++--\s]+)\s*\{/);
+            const forCStyle = line.match(/^for\s+([a-zA-Z0-9_]+)\s*:=\s*(.+?);\s*(.+?);\s*([a-zA-Z0-9_+\-\s]+)\s*\{/);
             if (forCStyle) {
                 line = `for (let ${forCStyle[1]} = ${forCStyle[2]}; ${forCStyle[3]}; ${forCStyle[4].trim()}) {`;
                 jsLines.push(line);
@@ -329,50 +332,93 @@ class GoInterpreter {
             },
             Printf: async (fmtStr, ...args) => {
                 let argIdx = 0;
-                const formatted = String(fmtStr).replace(/%(\.\d+)?([fFgdsvtTc%])/g, (match, precision, specifier) => {
+                const formatted = String(fmtStr).replace(/%(-?\d+)?(\.\d+)?([fFgdsvtTcxbBoxX%])/g, (match, widthStr, precision, specifier) => {
                     if (specifier === '%') return '%';
                     if (argIdx >= args.length) return match;
                     const val = args[argIdx++];
+                    let out = '';
 
                     switch (specifier) {
                         case 'f':
                         case 'F': {
                             const num = parseFloat(val);
-                            if (isNaN(num)) return 'NaN';
-                            if (precision) {
+                            if (isNaN(num)) out = 'NaN';
+                            else if (precision) {
                                 const dec = parseInt(precision.slice(1), 10);
-                                return num.toFixed(dec);
+                                out = num.toFixed(dec);
+                            } else {
+                                out = num.toFixed(6);
                             }
-                            return num.toFixed(6);
+                            break;
                         }
-                        case 'g': {
+                        case 'g':
+                        case 'G': {
                             const num = parseFloat(val);
-                            return isNaN(num) ? 'NaN' : String(num);
+                            out = isNaN(num) ? 'NaN' : String(num);
+                            break;
                         }
-                        case 'd': {
+                        case 'd':
+                        case 'i': {
                             const num = parseInt(val, 10);
-                            return isNaN(num) ? '0' : String(num);
+                            out = isNaN(num) ? '0' : String(num);
+                            break;
+                        }
+                        case 'x': {
+                            const num = parseInt(val, 10);
+                            out = isNaN(num) ? String(val) : num.toString(16).toLowerCase();
+                            break;
+                        }
+                        case 'X': {
+                            const num = parseInt(val, 10);
+                            out = isNaN(num) ? String(val) : num.toString(16).toUpperCase();
+                            break;
+                        }
+                        case 'b': {
+                            const num = parseInt(val, 10);
+                            out = isNaN(num) ? String(val) : num.toString(2);
+                            break;
+                        }
+                        case 'o':
+                        case 'O': {
+                            const num = parseInt(val, 10);
+                            out = isNaN(num) ? String(val) : num.toString(8);
+                            break;
                         }
                         case 's':
-                            return String(val);
+                            out = String(val);
+                            break;
                         case 't':
-                            return Boolean(val) ? 'true' : 'false';
+                            out = Boolean(val) ? 'true' : 'false';
+                            break;
                         case 'v':
-                            return typeof val === 'object' ? JSON.stringify(val) : String(val);
+                            out = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                            break;
                         case 'T': {
                             if (typeof val === 'number') {
-                                return Number.isInteger(val) ? 'int' : 'float64';
-                            }
-                            if (typeof val === 'string') return 'string';
-                            if (typeof val === 'boolean') return 'bool';
-                            if (Array.isArray(val)) return '[]interface{}';
-                            return typeof val;
+                                out = Number.isInteger(val) ? 'int' : 'float64';
+                            } else if (typeof val === 'string') out = 'string';
+                            else if (typeof val === 'boolean') out = 'bool';
+                            else if (Array.isArray(val)) out = '[]interface{}';
+                            else out = typeof val;
+                            break;
                         }
                         case 'c':
-                            return String.fromCharCode(Number(val) || 0);
+                            out = String.fromCharCode(Number(val) || 0);
+                            break;
                         default:
-                            return String(val);
+                            out = String(val);
+                            break;
                     }
+
+                    if (widthStr) {
+                        const width = parseInt(widthStr, 10);
+                        if (width < 0) {
+                            out = out.padEnd(-width, ' ');
+                        } else if (width > 0) {
+                            out = out.padStart(width, ' ');
+                        }
+                    }
+                    return out;
                 });
                 outputs.push(formatted);
                 if (this.terminal) {
@@ -579,6 +625,66 @@ class CodeTranspiler {
         return parts.join(', ');
     }
 
+    static extractParens(str) {
+        const start = str.indexOf('(');
+        if (start === -1) return null;
+        let depth = 0;
+        let inQuotes = false;
+        let quoteChar = '';
+        for (let i = start; i < str.length; i++) {
+            const ch = str[i];
+            if ((ch === '"' || ch === "'") && (i === 0 || str[i - 1] !== '\\')) {
+                if (!inQuotes) { inQuotes = true; quoteChar = ch; }
+                else if (ch === quoteChar) { inQuotes = false; }
+            } else if (!inQuotes && ch === '(') {
+                depth++;
+            } else if (!inQuotes && ch === ')') {
+                depth--;
+                if (depth === 0) {
+                    return str.substring(start + 1, i);
+                }
+            }
+        }
+        return null;
+    }
+
+    static splitArgs(raw) {
+        if (!raw || !raw.trim()) return [];
+        const args = [];
+        let current = '';
+        let inQuotes = false;
+        let quoteChar = '';
+        let parenDepth = 0;
+        let bracketDepth = 0;
+        for (let i = 0; i < raw.length; i++) {
+            const ch = raw[i];
+            if ((ch === '"' || ch === "'") && (i === 0 || raw[i - 1] !== '\\')) {
+                if (!inQuotes) { inQuotes = true; quoteChar = ch; }
+                else if (ch === quoteChar) { inQuotes = false; }
+                current += ch;
+            } else if (!inQuotes && ch === '(') {
+                parenDepth++;
+                current += ch;
+            } else if (!inQuotes && ch === ')') {
+                parenDepth = Math.max(0, parenDepth - 1);
+                current += ch;
+            } else if (!inQuotes && ch === '[') {
+                bracketDepth++;
+                current += ch;
+            } else if (!inQuotes && ch === ']') {
+                bracketDepth = Math.max(0, bracketDepth - 1);
+                current += ch;
+            } else if (!inQuotes && parenDepth === 0 && bracketDepth === 0 && ch === ',') {
+                if (current.trim()) args.push(current.trim());
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        if (current.trim()) args.push(current.trim());
+        return args;
+    }
+
     // Convert Pseudocode (Indonesian/English) into idiomatic Golang
     static pseudocodeToGo(pseudoCode) {
         const lines = pseudoCode.split('\n');
@@ -712,9 +818,9 @@ class CodeTranspiler {
 
             // Input: input(x) or input(a, b) or read/readln/scan
             if (/^(?:input|baca|masukan|read|readln|scan|scanln)\s*\(/i.test(line)) {
-                const match = line.match(/^(?:input|baca|masukan|read|readln|scan|scanln)\s*\((.+?)\)/i);
-                if (match) {
-                    const args = match[1].split(',').map(s => s.trim().replace(/^&/, ''));
+                const inner = CodeTranspiler.extractParens(line);
+                if (inner !== null) {
+                    const args = CodeTranspiler.splitArgs(inner).map(s => s.trim().replace(/^&/, ''));
                     const scanArgs = args.map(a => `&${a}`).join(', ');
                     appendGo(`    fmt.Scan(${scanArgs})`);
                     continue;
@@ -723,10 +829,9 @@ class CodeTranspiler {
 
             // Output: output(...) or write/writeln/print/println
             if (/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\(/i.test(line)) {
-                const match = line.match(/^(?:output|cetak|tulis|tampilkan|write|writeln|print|println)\s*\((.+?)\)/i);
-                if (match) {
-                    const rawArgs = match[1];
-                    const args = rawArgs.split(',').map(s => s.trim()).filter(Boolean);
+                const inner = CodeTranspiler.extractParens(line);
+                if (inner !== null) {
+                    const args = CodeTranspiler.splitArgs(inner);
                     const goArgs = args.map(a => declaredCharVars.has(a) ? `string(${a})` : a);
                     appendGo(`    fmt.Println(${goArgs.join(', ')})`);
                     continue;
@@ -872,7 +977,8 @@ class CodeTranspiler {
         const declaredVars = new Set();
         const subprogramLines = [];
         const bodyLines = [];
-        const blockStack = []; // stores 'for' | 'if' | 'while' | 'repeat' | 'function' | 'procedure'
+        const blockStack = []; // stores 'for' | 'if' | 'while' | 'repeat' | 'function' | 'procedure' | 'switch'
+        const switchStack = [];
         let currentSub = null; // 'function' | 'procedure' | null
 
         const goTypeToPseudo = (t) => {
@@ -961,6 +1067,36 @@ class CodeTranspiler {
                 continue;
             }
 
+            // switch statements
+            const switchMatch = line.match(/^switch(?:\s+([^{]+))?\s*\{/);
+            if (switchMatch) {
+                const expr = switchMatch[1] ? switchMatch[1].trim() : 'true';
+                switchStack.push({ expr, firstCase: true });
+                blockStack.push('switch');
+                continue;
+            }
+
+            // case statements
+            const caseMatch = line.match(/^case\s+(.+?):$/);
+            if (caseMatch && switchStack.length > 0) {
+                const curSwitch = switchStack[switchStack.length - 1];
+                const vals = caseMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+                const cond = vals.map(v => curSwitch.expr === 'true' ? v : `${curSwitch.expr} == ${v}`).join(' or ');
+                if (curSwitch.firstCase) {
+                    appendBody(`    jika ${cond} maka`);
+                    curSwitch.firstCase = false;
+                } else {
+                    appendBody(`    lainnya jika ${cond} maka`);
+                }
+                continue;
+            }
+
+            // default statement
+            if (/^default\s*:$/.test(line) && switchStack.length > 0) {
+                appendBody('    lainnya');
+                continue;
+            }
+
             // Closing brace }
             if (line === '}' || line.startsWith('}')) {
                 // If the current block is 'if', check if next non-empty code line starts with else
@@ -985,6 +1121,9 @@ class CodeTranspiler {
                 if (closing === 'for') {
                     appendBody('    selesai_untuk');
                 } else if (closing === 'if') {
+                    appendBody('    selesai_jika');
+                } else if (closing === 'switch') {
+                    switchStack.pop();
                     appendBody('    selesai_jika');
                 } else if (closing === 'while') {
                     appendBody('    selesai_selama');
@@ -1035,31 +1174,69 @@ class CodeTranspiler {
             }
 
             // fmt.Scan / fmt.Scanln / fmt.Scanf
-            const scanMatch = line.match(/fmt\.(?:Scan|Scanln|Scanf)\s*\((.+?)\)/);
-            if (scanMatch) {
-                const args = scanMatch[1].split(',').map(s => s.trim().replace(/^&/, ''));
-                appendBody(`    input(${args.join(', ')})`);
-                continue;
-            }
-
-            // fmt.Println(...) / fmt.Printf(...)
-            const printMatch = line.match(/fmt\.(?:Println|Print|Printf)\s*\((.+?)\)/);
-            if (printMatch) {
-                appendBody(`    output(${printMatch[1]})`);
-                continue;
-            }
-
-            // for loop: for i := 1; i <= n; i++ {
-            const forMatch = line.match(/for\s+([a-zA-Z0-9_]+)\s*:=\s*(.+?);\s*\1\s*<=\s*(.+?);\s*\1\+\+\s*\{/);
-            if (forMatch) {
-                const loopVar = forMatch[1];
-                if (!declaredVars.has(loopVar)) {
-                    declaredVars.add(loopVar);
-                    pseudoLines.push(`    ${loopVar} : integer`);
+            if (/fmt\.(?:Scan|Scanln|Scanf)\s*\(/.test(line)) {
+                const inner = CodeTranspiler.extractParens(line);
+                if (inner !== null) {
+                    let rawArgs = inner;
+                    if (line.includes('fmt.Scanf')) {
+                        const firstComma = rawArgs.indexOf(',');
+                        if (firstComma !== -1) {
+                            rawArgs = rawArgs.substring(firstComma + 1);
+                        }
+                    }
+                    const args = CodeTranspiler.splitArgs(rawArgs).map(s => s.trim().replace(/^&/, ''));
+                    appendBody(`    input(${args.join(', ')})`);
+                    continue;
                 }
-                appendBody(`    untuk ${loopVar} <- ${forMatch[2].trim()} sampai ${forMatch[3].trim()} lakukan`);
-                blockStack.push('for');
-                continue;
+            }
+
+            // fmt.Println(...) / fmt.Print(...) / fmt.Printf(...)
+            if (/fmt\.(?:Println|Print|Printf)\s*\(/.test(line)) {
+                const inner = CodeTranspiler.extractParens(line);
+                if (inner !== null) {
+                    let outExpr = inner;
+                    if (line.includes('fmt.Printf')) {
+                        const firstComma = outExpr.indexOf(',');
+                        if (firstComma !== -1) {
+                            outExpr = outExpr.substring(firstComma + 1).trim();
+                        }
+                    }
+                    appendBody(`    output(${outExpr})`);
+                    continue;
+                }
+            }
+
+            // C-style for loop: for i := start; cond; step {
+            const forCStyleMatch = line.match(/^for\s+([a-zA-Z0-9_]+)\s*:=\s*(.+?);\s*([a-zA-Z0-9_]+)\s*(<=|<|>=|>)\s*(.+?);\s*([a-zA-Z0-9_+\-\s+=]+)\s*\{/);
+            if (forCStyleMatch) {
+                const loopVar = forCStyleMatch[1];
+                const startExpr = forCStyleMatch[2].trim();
+                const cmpVar = forCStyleMatch[3];
+                const cmpOp = forCStyleMatch[4];
+                let endExpr = forCStyleMatch[5].trim();
+
+                if (loopVar === cmpVar) {
+                    if (!declaredVars.has(loopVar)) {
+                        declaredVars.add(loopVar);
+                        pseudoLines.push(`    ${loopVar} : integer`);
+                    }
+
+                    if (cmpOp === '<=') {
+                        appendBody(`    untuk ${loopVar} <- ${startExpr} sampai ${endExpr} lakukan`);
+                    } else if (cmpOp === '<') {
+                        if (/^\d+$/.test(endExpr)) endExpr = String(parseInt(endExpr, 10) - 1);
+                        else endExpr = `${endExpr} - 1`;
+                        appendBody(`    untuk ${loopVar} <- ${startExpr} sampai ${endExpr} lakukan`);
+                    } else if (cmpOp === '>=') {
+                        appendBody(`    untuk ${loopVar} <- ${startExpr} turun_ke ${endExpr} lakukan`);
+                    } else if (cmpOp === '>') {
+                        if (/^\d+$/.test(endExpr)) endExpr = String(parseInt(endExpr, 10) + 1);
+                        else endExpr = `${endExpr} + 1`;
+                        appendBody(`    untuk ${loopVar} <- ${startExpr} turun_ke ${endExpr} lakukan`);
+                    }
+                    blockStack.push('for');
+                    continue;
+                }
             }
 
             // while-style for in Go: for cond {
@@ -1067,6 +1244,13 @@ class CodeTranspiler {
             if (whileMatch && !line.includes(';')) {
                 let cond = whileMatch[1].trim();
                 appendBody(`    selama ${cond} lakukan`);
+                blockStack.push('while');
+                continue;
+            }
+
+            // Infinite loop / repeat-until in Go: for {
+            if (/^for\s*\{/.test(line)) {
+                appendBody('    selama true lakukan');
                 blockStack.push('while');
                 continue;
             }
@@ -1102,10 +1286,10 @@ class CodeTranspiler {
                 continue;
             }
 
-            // Assignment
-            if (line.includes('=') && !line.includes('==') && !line.includes('<=') && !line.includes('>=')) {
-                line = line.replace(':=', '<-').replace('=', '<-');
-                appendBody('    ' + line);
+            // Assignment: varName [index] = expr or varName = expr
+            const assignMatch = line.match(/^([a-zA-Z0-9_]+(?:\s*\[.+?\])?)\s*=\s*(.+)$/);
+            if (assignMatch && !line.startsWith('if') && !line.startsWith('for') && !line.startsWith('var') && !line.startsWith('const') && !line.startsWith('return')) {
+                appendBody(`    ${assignMatch[1].trim()} <- ${assignMatch[2].trim()}`);
                 continue;
             }
 
@@ -1117,6 +1301,7 @@ class CodeTranspiler {
             const closing = blockStack.pop();
             if (closing === 'for') appendBody('    selesai_untuk');
             else if (closing === 'if') appendBody('    selesai_jika');
+            else if (closing === 'switch') appendBody('    selesai_jika');
             else if (closing === 'while') appendBody('    selesai_selama');
             else if (closing === 'function') subprogramLines.push('    endfunction\n');
             else if (closing === 'procedure') subprogramLines.push('    endprocedure\n');

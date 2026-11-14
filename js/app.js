@@ -1421,7 +1421,7 @@ endprogram`;
         },
 
         highlightPseudocode(code) {
-            const tokenRegex = /(\/\/[^\n]*|#[^\n]*|\{[^\}]*\})|((?:"(?:\\.|[^"\\])*"|'[^']*'))|(\b\d+(?:\.\d+)?\b)|(\b(?:program|kamus|algoritma|endprogram|deklarasi|deskripsi)\b)|(\b(?:jika|maka|selain\s+itu|selainitu|selesai|untuk|sampai|lakukan|ulangi|selama|while|do|for|if|then|else|endif|endfor|endwhile|kasus|pilih|berhenti)\b)|(\b(?:input|output|masukan|tampilkan|cetak|baca|tulis)\b)|(\b(?:integer|string|boolean|float|real|char|bilangan|bulat|teks|desimal|karakter|larik|array)\b)|(\b(?:true|false|benar|salah|nil|null)\b)|(<-|:=|<=|>=|==|!=|<>|[+\-*\/%^=<>])|(\b(?:dan|atau|bukan|and|or|not|div|mod)\b)/gi;
+            const tokenRegex = /(\/\/[^\n]*|#[^\n]*|\{[^\}]*\})|((?:"(?:\\.|[^"\\])*"|'[^']*'))|(\b\d+(?:\.\d+)?\b)|(\b(?:program|kamus|algoritma|endprogram|deklarasi|deskripsi)\b)|(\b(?:jika|maka|selain\s+itu|selainitu|lainnya\s+jika|lainnya|selesai_jika|selesai_untuk|selesai_selama|selesai_prosedur|selesai_fungsi|selesai|untuk|sampai|turun_ke|turun\s+ke|downto|lakukan|ulangi|selama|while|do|for|if|then|else\s+if|else|endif|endfor|endwhile|endprocedure|endfunction|procedure|prosedur|function|fungsi|return|kembalikan|const|konstanta|kasus|pilih|berhenti)\b)|(\b(?:input|output|masukan|tampilkan|cetak|baca|tulis)\b)|(\b(?:integer|string|boolean|float|real|char|bilangan|bulat|teks|desimal|karakter|larik|array|inout|input\/output)\b)|(\b(?:true|false|benar|salah|nil|null)\b)|(<-|:=|<=|>=|==|!=|<>|[+\-*\/%^=<>])|(\b(?:dan|atau|bukan|and|or|not|div|mod)\b)/gi;
 
             let result = '';
             let lastIndex = 0;
@@ -1488,29 +1488,34 @@ endprogram`;
             { trigger: 'len', label: 'len(...)', insert: 'len()', cursorOffset: -1, badge: 'func', badgeColor: 'badge-func', desc: 'Panjang slice' }
         ],
         pseudocode: [
-            { trigger: 'pro', label: 'program nama_program', insert: 'program nama_program\n\nkamus:\n    \n\nalgoritma:\n    \n\nendprogram', badge: 'prog', badgeColor: 'badge-pkg', desc: 'Struktur pseudocode lengkap' },
-            { trigger: 'program', label: 'program nama_program', insert: 'program nama_program\n\nkamus:\n    \n\nalgoritma:\n    \n\nendprogram', badge: 'prog', badgeColor: 'badge-pkg', desc: 'Struktur pseudocode lengkap' },
-            { trigger: 'kam', label: 'kamus:', insert: 'kamus:\n    ', badge: 'kamus', badgeColor: 'badge-var', desc: 'Blok deklarasi kamus' },
-            { trigger: 'kamus', label: 'kamus:', insert: 'kamus:\n    ', badge: 'kamus', badgeColor: 'badge-var', desc: 'Blok deklarasi kamus' },
-            { trigger: 'alg', label: 'algoritma:', insert: 'algoritma:\n    ', badge: 'alg', badgeColor: 'badge-func', desc: 'Blok instruksi algoritma' },
-            { trigger: 'algoritma', label: 'algoritma:', insert: 'algoritma:\n    ', badge: 'alg', badgeColor: 'badge-func', desc: 'Blok instruksi algoritma' },
+            { trigger: 'pro', label: 'program nama_program', insert: 'program nama_program\n\nkamus\n    \n\nalgoritma\n    \n\nendprogram', badge: 'prog', badgeColor: 'badge-pkg', desc: 'Struktur pseudocode lengkap' },
+            { trigger: 'program', label: 'program nama_program', insert: 'program nama_program\n\nkamus\n    \n\nalgoritma\n    \n\nendprogram', badge: 'prog', badgeColor: 'badge-pkg', desc: 'Struktur pseudocode lengkap' },
+            { trigger: 'kam', label: 'kamus', insert: 'kamus\n    ', badge: 'kamus', badgeColor: 'badge-var', desc: 'Blok deklarasi kamus' },
+            { trigger: 'kamus', label: 'kamus', insert: 'kamus\n    ', badge: 'kamus', badgeColor: 'badge-var', desc: 'Blok deklarasi kamus' },
+            { trigger: 'alg', label: 'algoritma', insert: 'algoritma\n    ', badge: 'alg', badgeColor: 'badge-func', desc: 'Blok instruksi algoritma' },
+            { trigger: 'algoritma', label: 'algoritma', insert: 'algoritma\n    ', badge: 'alg', badgeColor: 'badge-func', desc: 'Blok instruksi algoritma' },
             { trigger: 'inp', label: 'input(...)', insert: 'input()', cursorOffset: -1, badge: 'i/o', badgeColor: 'badge-func', desc: 'Membaca input' },
             { trigger: 'input', label: 'input(...)', insert: 'input()', cursorOffset: -1, badge: 'i/o', badgeColor: 'badge-func', desc: 'Membaca input' },
             { trigger: 'out', label: 'output(...)', insert: 'output()', cursorOffset: -1, badge: 'i/o', badgeColor: 'badge-func', desc: 'Menampilkan output' },
             { trigger: 'output', label: 'output(...)', insert: 'output()', cursorOffset: -1, badge: 'i/o', badgeColor: 'badge-func', desc: 'Menampilkan output' },
             { trigger: 'end', label: 'endprogram', insert: 'endprogram', badge: 'end', badgeColor: 'badge-pkg', desc: 'Penutup program' },
             { trigger: 'endprogram', label: 'endprogram', insert: 'endprogram', badge: 'end', badgeColor: 'badge-pkg', desc: 'Penutup program' },
-            { trigger: 'jik', label: 'jika kondisi maka ... selesai', insert: 'jika kondisi maka\n    \nselesai', cursorOffset: -9, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
-            { trigger: 'jika', label: 'jika kondisi maka ... selesai', insert: 'jika kondisi maka\n    \nselesai', cursorOffset: -9, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
-            { trigger: 'unt', label: 'untuk i = 1 sampai n lakukan', insert: 'untuk i = 1 sampai 10 lakukan\n    \nselesai', cursorOffset: -9, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
-            { trigger: 'untuk', label: 'untuk i = 1 sampai n lakukan', insert: 'untuk i = 1 sampai 10 lakukan\n    \nselesai', cursorOffset: -9, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
+            { trigger: 'jik', label: 'jika kondisi maka ... selesai_jika', insert: 'jika kondisi maka\n    \nselesai_jika', cursorOffset: -14, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
+            { trigger: 'jika', label: 'jika kondisi maka ... selesai_jika', insert: 'jika kondisi maka\n    \nselesai_jika', cursorOffset: -14, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
+            { trigger: 'unt', label: 'untuk i <- 1 sampai n lakukan', insert: 'untuk i <- 1 sampai 10 lakukan\n    \nselesai_untuk', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
+            { trigger: 'untuk', label: 'untuk i <- 1 sampai n lakukan', insert: 'untuk i <- 1 sampai 10 lakukan\n    \nselesai_untuk', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
+            { trigger: 'sela', label: 'selama kondisi lakukan', insert: 'selama kondisi lakukan\n    \nselesai_selama', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan selama' },
+            { trigger: 'selama', label: 'selama kondisi lakukan', insert: 'selama kondisi lakukan\n    \nselesai_selama', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan selama' },
             { trigger: 'ula', label: 'ulangi ... sampai', insert: 'ulangi\n    \nsampai kondisi', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan ulangi' },
             { trigger: 'ulangi', label: 'ulangi ... sampai', insert: 'ulangi\n    \nsampai kondisi', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan ulangi' },
-            { trigger: 'sel', label: 'selesai', insert: 'selesai', badge: 'end', badgeColor: 'badge-ctrl', desc: 'Penutup percabangan/loop' },
-            { trigger: 'selesai', label: 'selesai', insert: 'selesai', badge: 'end', badgeColor: 'badge-ctrl', desc: 'Penutup percabangan/loop' },
-            { trigger: 'bil', label: 'bilangan', insert: 'bilangan', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe data angka bulat' },
-            { trigger: 'tek', label: 'teks', insert: 'teks', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe data teks' },
-            { trigger: 'des', label: 'desimal', insert: 'desimal', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe data angka desimal' }
+            { trigger: 'fun', label: 'function nama() -> tipe', insert: 'function nama() -> integer\n    \nendfunction', cursorOffset: -12, badge: 'func', badgeColor: 'badge-func', desc: 'Subprogram fungsi' },
+            { trigger: 'proc', label: 'procedure nama()', insert: 'procedure nama()\n    \nendprocedure', cursorOffset: -13, badge: 'func', badgeColor: 'badge-func', desc: 'Subprogram prosedur' },
+            { trigger: 'int', label: 'integer', insert: 'integer', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe bilangan bulat' },
+            { trigger: 'real', label: 'real', insert: 'real', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe bilangan desimal' },
+            { trigger: 'str', label: 'string', insert: 'string', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe teks' },
+            { trigger: 'char', label: 'char', insert: 'char', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe karakter tunggal' },
+            { trigger: 'bool', label: 'boolean', insert: 'boolean', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe logika benar/salah' },
+            { trigger: 'arr', label: 'array [1..N] of tipe', insert: 'array [1..10] of integer', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe larik/array' }
         ]
     };
 
