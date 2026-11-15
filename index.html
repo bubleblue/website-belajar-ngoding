@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=20261116-1">
+    <link rel="stylesheet" href="css/style.css?v=20261116-2">
 </head>
 <body class="ios-theme-light">
     <!-- Dynamic Island / Toast Notification -->
@@ -29,16 +29,12 @@
         <!-- iOS Navigation Bar -->
         <header class="ios-navbar">
             <div class="navbar-left">
-                <button class="icon-button mobile-menu-toggle" id="sidebar-toggle" title="Menu &amp; Materi" aria-label="Menu &amp; Materi">
-                    <i data-lucide="sidebar"></i>
-                </button>
                 <div class="app-brand">
                     <div class="brand-logo">
                         <i data-lucide="terminal"></i>
                     </div>
                     <div class="brand-info">
                         <h1>Pseudocodê &amp; Go</h1>
-                        
                     </div>
                 </div>
             </div>
@@ -46,13 +42,9 @@
             <!-- Segmented Control Switcher -->
             <div class="navbar-center">
                 <div class="segmented-control" id="main-segmented-control">
-                    <button class="segment-btn active" data-tab="challenges">
-                        <i data-lucide="book-open"></i>
-                        <span>Tantangan</span>
-                    </button>
-                    <button class="segment-btn" data-tab="playground">
+                    <button class="segment-btn active" data-tab="editor" id="tab-editor" title="Editor Kode TextMate">
                         <i data-lucide="code-2"></i>
-                        <span>Playground</span>
+                        <span>TextMate</span>
                     </button>
                     <button class="segment-btn" data-tab="ai-assistant" id="tab-nav-ai" title="AI Pembantu &amp; Pembaca Soal">
                         <i data-lucide="sparkles"></i>
@@ -91,170 +83,8 @@
 
         <!-- Main Body -->
         <main class="app-body">
-            <!-- Sidebar: Navigation & Curriculum Challenge Selector -->
-            <aside class="ios-sidebar" id="app-sidebar">
-                <!-- Mobile Drawer Header with Close Button (Visible on screens <= 860px) -->
-                <div class="sidebar-mobile-header">
-                    <div class="sidebar-mobile-brand">
-                        <div class="brand-logo-sm">
-                            <i data-lucide="terminal"></i>
-                        </div>
-                        <span>Pseudocodê &amp; Go</span>
-                    </div>
-                    <button class="icon-button icon-button-sm sidebar-close-btn" id="sidebar-close-btn" title="Tutup Menu" aria-label="Tutup Menu">
-                        <i data-lucide="x"></i>
-                    </button>
-                </div>
-
-                <!-- Account Status in Sidebar (Quick access to Login/Sync) -->
-                <div class="sidebar-account-box" id="sidebar-account-box">
-                    <button class="sidebar-nav-item sidebar-account-item sidebar-account-btn" id="sidebar-auth-btn" title="Kelola Akun &amp; Cloud Sync" aria-label="Kelola Akun">
-                        <div class="sidebar-nav-icon icon-account sidebar-account-avatar" id="sidebar-avatar-wrap">
-                            <i data-lucide="user" id="sidebar-avatar-icon"></i>
-                        </div>
-                        <div class="sidebar-nav-content sidebar-account-info">
-                            <div class="sidebar-nav-title sidebar-account-name" id="sidebar-user-display">Belum Masuk Akun</div>
-                            <div class="sidebar-nav-subtitle sidebar-account-sub" id="sidebar-sync-status">Klik untuk sinkronisasi cloud</div>
-                        </div>
-                        <i data-lucide="chevron-right" class="sidebar-nav-chevron sidebar-account-chevron"></i>
-                    </button>
-                </div>
-
-                <!-- Primary Navigation Section ("Menu Utama") -->
-                <div class="sidebar-main-nav">
-                    <div class="sidebar-section-header">
-                        <span class="caption">MENU UTAMA</span>
-                    </div>
-                    <div class="sidebar-nav-list">
-                        <button class="sidebar-nav-item active" data-tab="challenges">
-                            <div class="sidebar-nav-icon icon-challenges">
-                                <i data-lucide="book-open"></i>
-                            </div>
-                            <div class="sidebar-nav-content">
-                                <div class="sidebar-nav-title">Tantangan Algoritma</div>
-                                <div class="sidebar-nav-subtitle">9 Latihan &amp; Kurikulum Interaktif</div>
-                            </div>
-                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
-                        </button>
-
-                        <button class="sidebar-nav-item" data-tab="playground">
-                            <div class="sidebar-nav-icon icon-playground">
-                                <i data-lucide="code-2"></i>
-                            </div>
-                            <div class="sidebar-nav-content">
-                                <div class="sidebar-nav-title">Playground Bebas</div>
-                                <div class="sidebar-nav-subtitle">Eksperimen Pseudocode &amp; Go</div>
-                            </div>
-                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
-                        </button>
-
-                        <button class="sidebar-nav-item" data-tab="ai-assistant">
-                            <div class="sidebar-nav-icon icon-ai" style="background: rgba(88, 86, 214, 0.15); color: #5856D6;">
-                                <i data-lucide="sparkles"></i>
-                            </div>
-                            <div class="sidebar-nav-content">
-                                <div class="sidebar-nav-title">AI Pembantu Soal</div>
-                                <div class="sidebar-nav-subtitle">Pemeriksa logika &amp; tutor kode</div>
-                            </div>
-                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
-                        </button>
-
-                        <button class="sidebar-nav-item" data-tab="saved-programs">
-                            <div class="sidebar-nav-icon icon-saved">
-                                <i data-lucide="folder-code"></i>
-                            </div>
-                            <div class="sidebar-nav-content">
-                                <div class="sidebar-nav-title">Program Saya</div>
-                                <div class="sidebar-nav-subtitle">Koleksi berkas tersimpan</div>
-                            </div>
-                            <span class="segment-counter sidebar-counter" id="sidebar-saved-count">0</span>
-                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
-                        </button>
-
-                        <button class="sidebar-nav-item" data-tab="cheatsheet">
-                            <div class="sidebar-nav-icon icon-cheatsheet">
-                                <i data-lucide="file-text"></i>
-                            </div>
-                            <div class="sidebar-nav-content">
-                                <div class="sidebar-nav-title">Kamus Sintaks</div>
-                                <div class="sidebar-nav-subtitle">Panduan cepat &amp; aturan</div>
-                            </div>
-                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="sidebar-nav-divider"></div>
-
-                <div class="sidebar-header">
-                    <div class="sidebar-title-group">
-                        <span class="caption">KURIKULUM</span>
-                        <h2>Daftar Materi</h2>
-                    </div>
-                    <div class="progress-pill">
-                        <span id="progress-count">0/9</span>
-                        <div class="progress-mini-bar">
-                            <div class="progress-mini-fill" id="progress-fill" style="width: 0%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="challenges-list" id="challenges-list-container">
-                    <!-- Populated by JS -->
-                </div>
-                <!-- Sidebar Resizer Handle -->
-                <div class="sidebar-resizer-handle" id="sidebar-resizer-handle" title="Tarik untuk mengubah lebar menu materi"></div>
-            </aside>
-
-            <!-- Floating Oval Toggle Pill & Edge Hover Hotspot -->
-            <div class="sidebar-edge-hotspot" id="sidebar-edge-hotspot">
-                <button class="sidebar-edge-pill" id="sidebar-edge-pill" title="Tutup / Buka Kurikulum Materi" aria-label="Toggle Kurikulum Materi">
-                    <i data-lucide="chevron-left" id="sidebar-edge-chevron"></i>
-                </button>
-            </div>
-
-            <!-- Backdrop for Mobile Sidebar -->
-            <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
-
-            <!-- Main Interactive Work Area -->
+            <!-- Main Interactive Work Area (Full Width TextMate Workspace) -->
             <div class="workspace-area">
-                <!-- Top Section: Problem Description (Hidden in pure playground & saved programs) -->
-                <section class="card problem-card" id="problem-card">
-                    <div class="problem-card-header">
-                        <div class="problem-title-box">
-                            <div class="tag-row">
-                                <span class="ios-badge" id="problem-category">Kategori</span>
-                                <span class="ios-badge badge-difficulty" id="problem-difficulty">Mudah</span>
-                                <span class="ios-badge badge-status" id="problem-status">Belum Selesai</span>
-                            </div>
-                            <h2 id="problem-title">Memuat Tantangan...</h2>
-                        </div>
-                        <div class="problem-actions">
-                            <button class="ios-button ios-button-secondary ios-button-sm" id="btn-hint">
-                                <i data-lucide="lightbulb"></i>
-                                <span>Petunjuk</span>
-                            </button>
-                            <button class="ios-button ios-button-subtle ios-button-sm" id="btn-solution">
-                                <i data-lucide="key"></i>
-                                <span>Solusi</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="problem-body">
-                        <div class="problem-desc" id="problem-description"></div>
-                        
-                        <!-- Hint Drawer (Collapsible) -->
-                        <div class="collapsible-drawer" id="hint-drawer">
-                            <div class="drawer-header">
-                                <i data-lucide="sparkle"></i>
-                                <span>Petunjuk Pengerjaan:</span>
-                            </div>
-                            <div class="drawer-content" id="hint-text"></div>
-                        </div>
-                    </div>
-                </section>
-
                 <!-- Section: Saved Programs Manager -->
                 <section class="card saved-programs-card is-hidden" id="saved-programs-section">
                     <div class="saved-programs-header">
@@ -398,11 +228,7 @@
                         <!-- Action Bar Below Editor -->
                         <div class="editor-action-bar">
                             <div class="action-left">
-                                <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-check-solution">
-                                    <i data-lucide="check-circle-2"></i>
-                                    <span>Periksa Jawaban</span>
-                                </button>
-                                <button class="ios-button ios-button-success ios-btn-bounce" id="btn-run-fast">
+                                <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-run-fast">
                                     <i data-lucide="play"></i>
                                     <span>Jalankan</span>
                                 </button>
@@ -519,20 +345,6 @@
                                 </div>
                             </div>
                         </section>
-
-                        <!-- Test Cases Verification Results (For Challenges) -->
-                        <section class="card testcases-card" id="testcases-card">
-                            <div class="testcases-header">
-                                <div class="card-title-group">
-                                    <i data-lucide="shield-check"></i>
-                                    <h3>Pengujian Kasus Uji (Test Cases)</h3>
-                                </div>
-                                <div class="test-score-badge" id="test-score-badge">0 / 0 Lolos</div>
-                            </div>
-                            <div class="testcases-body" id="testcases-list">
-                                <div class="testcases-placeholder">Tekan "Periksa Jawaban" untuk menguji kodemu terhadap berbagai skenario input.</div>
-                            </div>
-                        </section>
                     </div>
                 </div>
             </div>
@@ -620,18 +432,11 @@
                     <div class="ai-section-header">
                         <div class="ai-label-group">
                             <i data-lucide="book-open"></i>
-                            <label for="ai-problem-input">Deskripsi Soal / Kasus:</label>
+                            <label for="ai-problem-input">Deskripsi Soal / Kasus Pemrograman:</label>
                         </div>
-                        <div class="ai-problem-sources">
-                            <button type="button" class="ai-pill-btn active" id="btn-ai-use-active-problem">
-                                <i data-lucide="check"></i> Soal Tantangan Aktif
-                            </button>
-                            <button type="button" class="ai-pill-btn" id="btn-ai-use-custom-problem">
-                                <i data-lucide="edit-3"></i> Tulis Soal Sendiri
-                            </button>
-                        </div>
+                        <span class="ai-pill-btn active"><i data-lucide="sparkles"></i> AI Pembaca Soal</span>
                     </div>
-                    <textarea id="ai-problem-input" class="ios-input-field ai-textarea" rows="3" placeholder="Tuliskan atau tempel deskripsi soal di sini..."></textarea>
+                    <textarea id="ai-problem-input" class="ios-input-field ai-textarea" rows="4" placeholder="Tempel atau ketik soal di sini (lengkap dengan contoh Masukan &amp; Keluaran atau ketentuan perhitungan)..."></textarea>
                 </div>
 
                 <!-- Section 2: Code Preview & Language -->
@@ -1018,14 +823,14 @@ endprogram</code></pre>
     <!-- Firebase SDK (Compat v10 for direct browser use) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261116-1"></script>
-    <script src="js/cloud-db.js?v=20261116-1"></script>
-    <script src="js/audio.js?v=20261116-1"></script>
-    <script src="js/interpreter.js?v=20261116-1"></script>
-    <script src="js/go-interpreter.js?v=20261116-1"></script>
-    <script src="js/terminal.js?v=20261116-1"></script>
-    <script src="js/challenges.js?v=20261116-1"></script>
-    <script src="js/ai-assistant.js?v=20261116-1"></script>
-    <script src="js/app.js?v=20261116-1"></script>
+    <script src="js/firebase-config.js?v=20261116-2"></script>
+    <script src="js/cloud-db.js?v=20261116-2"></script>
+    <script src="js/audio.js?v=20261116-2"></script>
+    <script src="js/interpreter.js?v=20261116-2"></script>
+    <script src="js/go-interpreter.js?v=20261116-2"></script>
+    <script src="js/terminal.js?v=20261116-2"></script>
+    <script src="js/challenges.js?v=20261116-2"></script>
+    <script src="js/ai-assistant.js?v=20261116-2"></script>
+    <script src="js/app.js?v=20261116-2"></script>
 </body>
 </html>

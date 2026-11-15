@@ -622,9 +622,10 @@ func main() {
     }
 
     // =========================================================================
-    // Sidebar & Curriculum Navigation
+    // Sidebar & Curriculum Navigation (Safe Guards)
     // =========================================================================
     function renderSidebar() {
+        if (!elements.challengesList) return;
         elements.challengesList.innerHTML = '';
         CHALLENGES.forEach((challenge, idx) => {
             const isCompleted = state.completedChallenges.has(challenge.id);
@@ -656,43 +657,48 @@ func main() {
         });
 
         // Update progress pill
-        const completedCount = state.completedChallenges.size;
-        const totalCount = CHALLENGES.length;
-        elements.progressCount.textContent = `${completedCount}/${totalCount}`;
-        const pct = Math.round((completedCount / totalCount) * 100);
-        elements.progressFill.style.width = `${pct}%`;
+        if (elements.progressCount && elements.progressFill) {
+            const completedCount = state.completedChallenges.size;
+            const totalCount = CHALLENGES.length;
+            elements.progressCount.textContent = `${completedCount}/${totalCount}`;
+            const pct = Math.round((completedCount / totalCount) * 100);
+            elements.progressFill.style.width = `${pct}%`;
+        }
 
         if (window.lucide) window.lucide.createIcons();
     }
 
     function selectChallenge(idx) {
+        if (!CHALLENGES || !CHALLENGES[idx]) return;
         state.currentChallengeIndex = idx;
         state.currentProgramId = null;
         const challenge = CHALLENGES[idx];
 
-        switchTab('challenges');
-
-        elements.problemTitle.textContent = challenge.title;
-        elements.problemCategory.textContent = challenge.category;
-        elements.problemDifficulty.textContent = challenge.difficulty;
-        elements.problemDifficulty.className = `ios-badge badge-difficulty ${challenge.difficulty}`;
-
-        const isCompleted = state.completedChallenges.has(challenge.id);
-        elements.problemStatus.textContent = isCompleted ? 'Selesai' : 'Belum Selesai';
-        elements.problemStatus.className = `ios-badge badge-status ${isCompleted ? 'completed' : ''}`;
-
-        let descHtml = `<p>${challenge.description}</p>`;
-        if (challenge.instructions && challenge.instructions.length > 0) {
-            descHtml += `<p style="margin-top: 8px; font-weight: 600;">Langkah Pengerjaan:</p><ul>`;
-            challenge.instructions.forEach(inst => {
-                descHtml += `<li>${inst}</li>`;
-            });
-            descHtml += `</ul>`;
+        if (elements.problemTitle) elements.problemTitle.textContent = challenge.title;
+        if (elements.problemCategory) elements.problemCategory.textContent = challenge.category;
+        if (elements.problemDifficulty) {
+            elements.problemDifficulty.textContent = challenge.difficulty;
+            elements.problemDifficulty.className = `ios-badge badge-difficulty ${challenge.difficulty}`;
         }
-        elements.problemDesc.innerHTML = descHtml;
+        if (elements.problemStatus) {
+            const isCompleted = state.completedChallenges.has(challenge.id);
+            elements.problemStatus.textContent = isCompleted ? 'Selesai' : 'Belum Selesai';
+            elements.problemStatus.className = `ios-badge badge-status ${isCompleted ? 'completed' : ''}`;
+        }
+        if (elements.problemDesc) {
+            let descHtml = `<p>${challenge.description}</p>`;
+            if (challenge.instructions && challenge.instructions.length > 0) {
+                descHtml += `<p style="margin-top: 8px; font-weight: 600;">Langkah Pengerjaan:</p><ul>`;
+                challenge.instructions.forEach(inst => {
+                    descHtml += `<li>${inst}</li>`;
+                });
+                descHtml += `</ul>`;
+            }
+            elements.problemDesc.innerHTML = descHtml;
+        }
 
-        elements.hintText.textContent = challenge.hint || 'Tidak ada petunjuk khusus.';
-        elements.hintDrawer.classList.remove('active');
+        if (elements.hintText) elements.hintText.textContent = challenge.hint || 'Tidak ada petunjuk khusus.';
+        if (elements.hintDrawer) elements.hintDrawer.classList.remove('active');
 
         // Load starter code based on active language
         if (state.currentLanguage === 'golang') {
@@ -705,11 +711,10 @@ func main() {
 
         updateFileLabel();
         updateLineNumbers();
-
         resetVarTable();
         stopStepExecution();
 
-        renderInitialTestCases(challenge.testCases);
+        if (elements.testcasesList) renderInitialTestCases(challenge.testCases);
         renderSidebar();
     }
 
@@ -927,26 +932,19 @@ func main() {
             return;
         }
 
-        state.activeTab = tab;
+        // Unified Editor tab (TextMate) or legacy aliases
+        if (tab === 'challenges' || tab === 'playground' || tab === 'editor') {
+            state.activeTab = 'editor';
+            document.querySelectorAll('[data-tab]').forEach(btn => {
+                const isEditorBtn = btn.dataset.tab === 'editor' || btn.dataset.tab === 'challenges' || btn.dataset.tab === 'playground';
+                btn.classList.toggle('active', isEditorBtn);
+            });
 
-        // Synchronize all tab buttons (segmented control, sidebar main nav, mobile tabbar)
-        document.querySelectorAll('[data-tab]').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.tab === tab);
-        });
-
-        if (tab === 'challenges') {
-            elements.problemCard.style.display = 'block';
-            elements.savedProgramsSection.classList.add('is-hidden');
-            elements.codingGrid.style.display = 'grid';
-            elements.testcasesCard.style.display = 'block';
-            elements.btnCheckSolution.style.display = 'inline-flex';
-            renderSidebar();
-        } else if (tab === 'playground') {
-            elements.problemCard.style.display = 'none';
-            elements.savedProgramsSection.classList.add('is-hidden');
-            elements.codingGrid.style.display = 'grid';
-            elements.testcasesCard.style.display = 'none';
-            elements.btnCheckSolution.style.display = 'none';
+            if (elements.problemCard) elements.problemCard.style.display = 'none';
+            if (elements.testcasesCard) elements.testcasesCard.style.display = 'none';
+            if (elements.btnCheckSolution) elements.btnCheckSolution.style.display = 'none';
+            if (elements.savedProgramsSection) elements.savedProgramsSection.classList.add('is-hidden');
+            if (elements.codingGrid) elements.codingGrid.style.display = 'grid';
 
             if (!elements.editor.value.trim() || elements.editor.value.includes('HaloDunia')) {
                 if (state.currentLanguage === 'golang') {
@@ -957,7 +955,7 @@ import "fmt"
 func main() {
     nama := "budi"
     umur := 17
-    fmt.Printf("Halo %s, umurmu adalah %d\n", nama, umur)
+    fmt.Printf("Halo %s, umurmu adalah %d\\n", nama, umur)
     if umur >= 17 {
         fmt.Println("Kamu sudah cukup umur!")
     } else {
@@ -965,7 +963,7 @@ func main() {
     }
 }`;
                 } else {
-                    elements.editor.value = `program #####
+                    elements.editor.value = `program Latihan
 kamus
     nama : string
     umur : integer
@@ -974,22 +972,30 @@ algoritma
     nama <- "budi"
     umur <- 17
     
-    output("halo ", nama, ", umurmu adalah ", umur)
+    output("Halo ", nama, ", umurmu adalah ", umur)
     
     if umur >= 17 then
-        output("kamu sudah cukup umur!")
+        output("Kamu sudah cukup umur!")
     else
-        output("kamu masih anak-anak.")
+        output("Kamu masih anak-anak.")
     endif
 endprogram`;
                 }
                 updateLineNumbers();
             }
-        } else if (tab === 'saved-programs') {
-            elements.problemCard.style.display = 'none';
-            elements.codingGrid.style.display = 'none';
-            elements.savedProgramsSection.classList.remove('is-hidden');
+            return;
+        }
+
+        if (tab === 'saved-programs') {
+            state.activeTab = 'saved-programs';
+            document.querySelectorAll('[data-tab]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === 'saved-programs');
+            });
+            if (elements.problemCard) elements.problemCard.style.display = 'none';
+            if (elements.codingGrid) elements.codingGrid.style.display = 'none';
+            if (elements.savedProgramsSection) elements.savedProgramsSection.classList.remove('is-hidden');
             renderSavedProgramsList(elements.savedSearchInput ? elements.savedSearchInput.value : '');
+            return;
         }
     }
 
@@ -1134,7 +1140,7 @@ endprogram`;
         updateFileLabel();
         updateLineNumbers();
         setLanguage(isGo ? 'golang' : 'pseudocode');
-        switchTab('playground');
+        switchTab('editor');
     }
 
     function createNewProgram() {
@@ -1163,7 +1169,7 @@ endprogram`;
         }
         updateFileLabel();
         updateLineNumbers();
-        switchTab('playground');
+        switchTab('editor');
         elements.editor.focus();
     }
 
@@ -2968,17 +2974,14 @@ endprogram`;
         }
 
         // 2. Setup problem input
-        const activeProb = getActiveProblemText();
-        if (activeProb) {
-            if (elements.aiProblemInput) elements.aiProblemInput.value = activeProb;
-            if (elements.btnAiUseActiveProblem) elements.btnAiUseActiveProblem.classList.add('active');
-            if (elements.btnAiUseCustomProblem) elements.btnAiUseCustomProblem.classList.remove('active');
-        } else {
-            if (elements.aiProblemInput && !elements.aiProblemInput.value.trim()) {
-                elements.aiProblemInput.placeholder = 'Ketik atau tempelkan soal pemrograman di sini...';
+        if (elements.aiProblemInput && !elements.aiProblemInput.value.trim()) {
+            const savedProb = localStorage.getItem('pseudocode_saved_ai_problem') || '';
+            if (savedProb) {
+                elements.aiProblemInput.value = savedProb;
+            } else {
+                const activeProb = getActiveProblemText();
+                if (activeProb) elements.aiProblemInput.value = activeProb;
             }
-            if (elements.btnAiUseActiveProblem) elements.btnAiUseActiveProblem.classList.remove('active');
-            if (elements.btnAiUseCustomProblem) elements.btnAiUseCustomProblem.classList.add('active');
         }
 
         // 3. Reset results
@@ -3038,6 +3041,12 @@ endprogram`;
             const problemText = elements.aiProblemInput ? elements.aiProblemInput.value.trim() : '';
             const codeText = elements.editor ? elements.editor.value : '';
             const lang = state.currentLanguage || 'pseudocode';
+
+            if (problemText) {
+                try {
+                    localStorage.setItem('pseudocode_saved_ai_problem', problemText);
+                } catch (e) {}
+            }
 
             // Loading state
             elements.btnTriggerAiAnalysis.disabled = true;
@@ -3225,9 +3234,24 @@ endprogram`;
     // =========================================================================
     // Initial Boot
     // =========================================================================
-    renderSidebar();
-    selectChallenge(0);
     setLanguage('pseudocode');
+    switchTab('editor');
+    if (!elements.editor.value.trim()) {
+        elements.editor.value = `program Latihan
+kamus
+    nama : string
+    angka : integer
+
+algoritma
+    nama <- "budi"
+    angka <- 10
+    output("Halo ", nama, ", angka: ", angka)
+endprogram`;
+        updateLineNumbers();
+        highlightCode();
+    }
+    state.currentFileTitle = 'program.pseudo';
+    updateFileLabel();
 
     // Trigger 5: Dynamic Island - Selamat Datang
     setTimeout(() => {
