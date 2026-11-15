@@ -971,7 +971,7 @@ class CodeTranspiler {
         const lines = goCode.split('\n');
         const pseudoLines = [];
 
-        pseudoLines.push('program dari_golang');
+        pseudoLines.push('program go_program');
         pseudoLines.push('kamus');
 
         const declaredVars = new Set();
@@ -1056,14 +1056,14 @@ class CodeTranspiler {
             // else if / } else if
             const elifMatch = line.match(/^(?:\}\s*)?else\s+if\s+([^{]+)\s*\{/);
             if (elifMatch) {
-                appendBody(`    lainnya jika ${elifMatch[1].trim()} maka`);
+                appendBody(`    else if ${elifMatch[1].trim()} then`);
                 continue;
             }
 
             // else / } else
             const elseMatch = line.match(/^(?:\}\s*)?else\s*\{/);
             if (elseMatch) {
-                appendBody('    lainnya');
+                appendBody('    else');
                 continue;
             }
 
@@ -1083,17 +1083,17 @@ class CodeTranspiler {
                 const vals = caseMatch[1].split(',').map(s => s.trim()).filter(Boolean);
                 const cond = vals.map(v => curSwitch.expr === 'true' ? v : `${curSwitch.expr} == ${v}`).join(' or ');
                 if (curSwitch.firstCase) {
-                    appendBody(`    jika ${cond} maka`);
+                    appendBody(`    if ${cond} then`);
                     curSwitch.firstCase = false;
                 } else {
-                    appendBody(`    lainnya jika ${cond} maka`);
+                    appendBody(`    else if ${cond} then`);
                 }
                 continue;
             }
 
             // default statement
             if (/^default\s*:$/.test(line) && switchStack.length > 0) {
-                appendBody('    lainnya');
+                appendBody('    else');
                 continue;
             }
 
@@ -1119,14 +1119,14 @@ class CodeTranspiler {
 
                 const closing = blockStack.pop();
                 if (closing === 'for') {
-                    appendBody('    selesai_untuk');
+                    appendBody('    endfor');
                 } else if (closing === 'if') {
-                    appendBody('    selesai_jika');
+                    appendBody('    endif');
                 } else if (closing === 'switch') {
                     switchStack.pop();
-                    appendBody('    selesai_jika');
+                    appendBody('    endif');
                 } else if (closing === 'while') {
-                    appendBody('    selesai_selama');
+                    appendBody('    endwhile');
                 } else if (closing === 'function') {
                     subprogramLines.push('    endfunction\n');
                     currentSub = null;
@@ -1222,17 +1222,17 @@ class CodeTranspiler {
                     }
 
                     if (cmpOp === '<=') {
-                        appendBody(`    untuk ${loopVar} <- ${startExpr} sampai ${endExpr} lakukan`);
+                        appendBody(`    for ${loopVar} <- ${startExpr} to ${endExpr} do`);
                     } else if (cmpOp === '<') {
                         if (/^\d+$/.test(endExpr)) endExpr = String(parseInt(endExpr, 10) - 1);
                         else endExpr = `${endExpr} - 1`;
-                        appendBody(`    untuk ${loopVar} <- ${startExpr} sampai ${endExpr} lakukan`);
+                        appendBody(`    for ${loopVar} <- ${startExpr} to ${endExpr} do`);
                     } else if (cmpOp === '>=') {
-                        appendBody(`    untuk ${loopVar} <- ${startExpr} turun_ke ${endExpr} lakukan`);
+                        appendBody(`    for ${loopVar} <- ${startExpr} downto ${endExpr} do`);
                     } else if (cmpOp === '>') {
                         if (/^\d+$/.test(endExpr)) endExpr = String(parseInt(endExpr, 10) + 1);
                         else endExpr = `${endExpr} + 1`;
-                        appendBody(`    untuk ${loopVar} <- ${startExpr} turun_ke ${endExpr} lakukan`);
+                        appendBody(`    for ${loopVar} <- ${startExpr} downto ${endExpr} do`);
                     }
                     blockStack.push('for');
                     continue;
@@ -1243,14 +1243,14 @@ class CodeTranspiler {
             const whileMatch = line.match(/^for\s+([^{]+)\s*\{/);
             if (whileMatch && !line.includes(';')) {
                 let cond = whileMatch[1].trim();
-                appendBody(`    selama ${cond} lakukan`);
+                appendBody(`    while ${cond} do`);
                 blockStack.push('while');
                 continue;
             }
 
             // Infinite loop / repeat-until in Go: for {
             if (/^for\s*\{/.test(line)) {
-                appendBody('    selama true lakukan');
+                appendBody('    while true do');
                 blockStack.push('while');
                 continue;
             }
@@ -1258,7 +1258,7 @@ class CodeTranspiler {
             // if statement: if cond {
             const ifMatch = line.match(/^if\s+([^{]+)\s*\{/);
             if (ifMatch) {
-                appendBody(`    jika ${ifMatch[1].trim()} maka`);
+                appendBody(`    if ${ifMatch[1].trim()} then`);
                 blockStack.push('if');
                 continue;
             }
@@ -1299,10 +1299,10 @@ class CodeTranspiler {
         // Flush any unclosed blocks
         while (blockStack.length > 0) {
             const closing = blockStack.pop();
-            if (closing === 'for') appendBody('    selesai_untuk');
-            else if (closing === 'if') appendBody('    selesai_jika');
-            else if (closing === 'switch') appendBody('    selesai_jika');
-            else if (closing === 'while') appendBody('    selesai_selama');
+            if (closing === 'for') appendBody('    endfor');
+            else if (closing === 'if') appendBody('    endif');
+            else if (closing === 'switch') appendBody('    endif');
+            else if (closing === 'while') appendBody('    endwhile');
             else if (closing === 'function') subprogramLines.push('    endfunction\n');
             else if (closing === 'procedure') subprogramLines.push('    endprocedure\n');
         }

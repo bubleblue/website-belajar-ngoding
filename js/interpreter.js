@@ -301,14 +301,14 @@ class PseudocodeInterpreter {
             if (/^(PROGRAM|ALGORITMA)\s+[^\s:]+/i.test(text) || /^PROGRAM\b/i.test(text)) {
                 continue;
             }
-            // Declaration section header (e.g. "kamus", "kamus:", "deklarasi", "deklarasi:")
-            if (/^(DEKLARASI|KAMUS)\b/i.test(text)) {
+            // Declaration section header (e.g. "kamus", "kamus:", "deklarasi", "deklarasi:", "declaration", "dictionary")
+            if (/^(DEKLARASI|KAMUS|DECLARATION|DICTIONARY)\b/i.test(text)) {
                 inDeclarasi = true;
                 inAlgoritma = false;
                 continue;
             }
-            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "begin", "mulai", "start")
-            if (/^(DESKRIPSI|ALGORITMA|BEGIN|MULAI|START)\b/i.test(text)) {
+            // Execution section header (e.g. "algoritma", "algoritma:", "deskripsi", "begin", "mulai", "start", "algorithm")
+            if (/^(DESKRIPSI|ALGORITMA|ALGORITHM|BEGIN|MULAI|START)\b/i.test(text)) {
                 inDeclarasi = false;
                 inAlgoritma = true;
                 continue;
