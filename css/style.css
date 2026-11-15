@@ -428,9 +428,10 @@ html, body {
     display: flex;
     flex: 1;
     position: relative;
-    max-width: 1600px;
-    margin: 0 auto;
     width: 100%;
+    max-width: 100%;
+    margin: 0;
+    min-width: 0;
 }
 
 /* iOS Card Base Component */
@@ -942,11 +943,13 @@ html, body {
    ========================================================================== */
 .workspace-area {
     flex: 1;
-    padding: 20px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 /* Problem Card */
@@ -1303,10 +1306,12 @@ html, body {
 .coding-grid {
     display: grid;
     grid-template-columns: var(--editor-col-width, 1.25fr) 10px 1fr;
-    gap: 12px;
+    gap: 16px;
     align-items: stretch;
     transition: grid-template-columns 0.35s cubic-bezier(0.25, 1, 0.5, 1), gap 0.3s ease;
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 /* Splitter Gutter between Editor & Execution Column */
@@ -1349,10 +1354,16 @@ html, body {
 .coding-grid.layout-stacked {
     grid-template-columns: 1fr !important;
     gap: 18px;
+    width: 100%;
 }
 
 .coding-grid.layout-stacked .grid-resizer-gutter {
-    display: none;
+    display: none !important;
+}
+
+.coding-grid.layout-stacked .editor-card,
+.coding-grid.layout-stacked .execution-column {
+    width: 100% !important;
 }
 
 .coding-grid.layout-stacked .execution-column {
@@ -1379,6 +1390,9 @@ html, body {
     display: flex;
     flex-direction: column;
     background: var(--code-editor-bg);
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 .editor-header {
@@ -2202,6 +2216,9 @@ body.ios-theme-dark .badge-pkg { color: #D16DFF; }
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
 /* Watch Card: Live Variable Inspector */
@@ -4089,7 +4106,17 @@ body.ios-theme-light .web-terminal-card .terminal-header {
    ========================================================================== */
 @media (max-width: 1024px) {
     .coding-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
+
+    .grid-resizer-gutter {
+        display: none !important;
+    }
+
+    .editor-card,
+    .execution-column {
+        width: 100% !important;
     }
 
     .cheatsheet-grid {
@@ -4099,106 +4126,98 @@ body.ios-theme-light .web-terminal-card .terminal-header {
 
 @media (max-width: 860px) {
     .mobile-menu-toggle {
-        display: inline-flex;
+        display: none !important;
     }
 
     .brand-info {
-        display: none;
-    }
-
-    .sidebar-edge-hotspot {
-        display: none !important;
-    }
-
-    .sidebar-resizer-handle {
-        display: none !important;
-    }
-
-    .sidebar-mobile-header {
         display: flex;
     }
 
-    .ios-sidebar,
-    .ios-sidebar.collapsed {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        bottom: 0 !important;
-        width: min(340px, 86vw) !important;
-        min-width: 0 !important;
-        height: 100vh !important;
-        z-index: 400 !important;
-        padding: 18px 16px !important;
-        transform: translateX(-100%) !important;
-        box-shadow: 12px 0 32px rgba(0, 0, 0, 0.25) !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        overflow-y: auto !important;
-        transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    .ios-navbar {
+        height: auto;
+        min-height: 56px;
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
     }
 
-    .ios-sidebar.open,
-    .ios-sidebar.collapsed.open {
-        transform: translateX(0) !important;
-        visibility: visible !important;
+    /* Top segmented control remains visible & horizontally scrollable on mobile */
+    .navbar-center {
+        display: flex !important;
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 2px 0;
+        justify-content: flex-start;
     }
 
-    .sidebar-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.4);
-        backdrop-filter: blur(4px);
-        -webkit-backdrop-filter: blur(4px);
-        z-index: 399;
+    .navbar-center::-webkit-scrollbar {
         display: none;
     }
 
-    .sidebar-backdrop.active {
-        display: block;
+    .segmented-control {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        white-space: nowrap;
     }
 
-    /* When minimized: top center menu bar is hidden */
-    .navbar-center {
-        display: none !important;
+    .segment-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 6px 8px;
+        font-size: 12px;
+        gap: 4px;
     }
 
-    /* When minimized: left menu bar is shown inside the drawer */
-    .sidebar-main-nav {
-        display: flex !important;
-    }
-
-    .sidebar-nav-divider {
-        display: block !important;
+    .segment-btn svg {
+        width: 14px;
+        height: 14px;
     }
 
     .workspace-area {
-        padding: 14px;
-    }
-
-    .problem-card-header {
-        flex-direction: column;
-    }
-
-    .problem-actions {
+        padding: 10px 8px;
+        gap: 12px;
         width: 100%;
-        justify-content: flex-start;
+    }
+
+    .coding-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    .grid-resizer-gutter {
+        display: none !important;
+    }
+
+    .editor-card,
+    .execution-column {
+        width: 100% !important;
     }
 
     .snippet-bar {
         max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .editor-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 12px;
+    }
+
+    .file-tab-group {
+        justify-content: space-between;
+        width: 100%;
         flex-wrap: wrap;
-        gap: 10px;
     }
 
     .editor-header-actions {
         width: 100%;
-        justify-content: flex-end;
+        justify-content: space-between;
         flex-wrap: wrap;
     }
 
@@ -4206,14 +4225,39 @@ body.ios-theme-light .web-terminal-card .terminal-header {
         padding: 6px 10px;
     }
 
+    .code-editor-container {
+        height: 360px;
+        min-height: 200px;
+    }
+
     .editor-action-bar {
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
+        padding: 10px 12px;
     }
 
     .action-left, .action-right {
         width: 100%;
-        justify-content: space-between;
+        justify-content: stretch;
+        gap: 8px;
+    }
+
+    .action-left .ios-button,
+    .action-right .ios-button,
+    .step-controls {
+        width: 100%;
+        display: flex;
+    }
+
+    .step-controls .ios-button {
+        flex: 1;
+    }
+
+    .var-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        width: 100%;
     }
 
     .ios-sheet-card {
@@ -4224,5 +4268,25 @@ body.ios-theme-light .web-terminal-card .terminal-header {
         top: 10px;
         right: 12px;
         max-width: calc(100vw - 24px);
+    }
+}
+
+@media (max-width: 480px) {
+    .workspace-area {
+        padding: 8px 6px;
+    }
+
+    .segment-btn span {
+        font-size: 11px;
+    }
+
+    .line-numbers {
+        width: 36px;
+        padding: 14px 4px;
+        font-size: 12px;
+    }
+
+    .code-editor-container {
+        height: 300px;
     }
 }
