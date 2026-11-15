@@ -727,8 +727,11 @@ func main() {
     }
 
     function renderInitialTestCases(testCases) {
-        elements.testScoreBadge.textContent = `0 / ${testCases.length} Lolos`;
-        elements.testScoreBadge.className = 'test-score-badge';
+        if (!elements.testcasesList) return;
+        if (elements.testScoreBadge) {
+            elements.testScoreBadge.textContent = `0 / ${testCases.length} Lolos`;
+            elements.testScoreBadge.className = 'test-score-badge';
+        }
         elements.testcasesList.innerHTML = '';
 
         testCases.forEach((tc, idx) => {
@@ -747,7 +750,7 @@ func main() {
                     <div class="testcase-field">Ekspektasi: <b>${outStr}</b></div>
                 </div>
             `;
-            elements.testcasesList.appendChild(item);
+            if (elements.testcasesList) elements.testcasesList.appendChild(item);
         });
     }
 
@@ -858,7 +861,7 @@ func main() {
 
     // Hover behavior: When sidebar is collapsed and hidden, reappear when cursor moves to the far left edge (<= 56px)
     window.addEventListener('mousemove', (e) => {
-        if (!elements.sidebarEdgeHotspot) return;
+        if (!elements.sidebar || !elements.sidebarEdgeHotspot) return;
         if (window.innerWidth <= 860) return;
         
         const isCollapsed = elements.sidebar.classList.contains('collapsed');
@@ -875,14 +878,14 @@ func main() {
     });
 
     document.addEventListener('mouseleave', () => {
-        if (elements.sidebarEdgeHotspot && elements.sidebar.classList.contains('collapsed')) {
+        if (elements.sidebar && elements.sidebarEdgeHotspot && elements.sidebar.classList.contains('collapsed')) {
             elements.sidebarEdgeHotspot.classList.remove('is-near-edge');
         }
     });
 
     // Restore saved sidebar collapsed state on load
     const savedCollapsed = localStorage.getItem('pseudocode_sidebar_collapsed') === 'true';
-    if (savedCollapsed && window.innerWidth > 860) {
+    if (elements.sidebar && savedCollapsed && window.innerWidth > 860) {
         toggleSidebarCollapsed(true, false);
         // Since it was already collapsed in storage, hide immediately
         if (elements.sidebarEdgeHotspot) {
@@ -890,7 +893,9 @@ func main() {
         }
     }
 
-    elements.sidebarBackdrop.addEventListener('click', closeSidebar);
+    if (elements.sidebarBackdrop) {
+        elements.sidebarBackdrop.addEventListener('click', closeSidebar);
+    }
 
     // Responsive viewport listener to keep sidebar state synchronized
     window.addEventListener('resize', () => {
@@ -1841,31 +1846,65 @@ endprogram`;
         }
     });
 
+    // Safe Clipboard Copy Helper
+    function copyTextToClipboard(text, successTitle = 'Menyalin Kode', successDesc = 'Kode program telah disalin ke clipboard.') {
+        if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification(successTitle, successDesc, 'success', 'copy');
+            }).catch(() => {
+                fallbackCopyText(text, successTitle, successDesc);
+            });
+        } else {
+            fallbackCopyText(text, successTitle, successDesc);
+        }
+    }
+
+    function fallbackCopyText(text, successTitle, successDesc) {
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            showNotification(successTitle, successDesc, 'success', 'copy');
+        } catch (e) {
+            showNotification('Gagal Menyalin', 'Salin manual teks dari editor.', 'error', 'alert-circle');
+        }
+    }
+
     // Copy Code Button
-    elements.btnCopyCode.addEventListener('click', () => {
-        if (window.soundManager) window.soundManager.playTap();
-        navigator.clipboard.writeText(elements.editor.value).then(() => {
-            showNotification('Menyalin Kode', 'Kode program telah disalin ke clipboard.', 'success', 'copy');
+    if (elements.btnCopyCode) {
+        elements.btnCopyCode.addEventListener('click', () => {
+            if (window.soundManager) window.soundManager.playTap();
+            copyTextToClipboard(elements.editor ? elements.editor.value : '');
         });
-    });
+    }
 
     // Hint toggle
-    elements.btnHint.addEventListener('click', () => {
-        if (window.soundManager) window.soundManager.playTap();
-        elements.hintDrawer.classList.toggle('active');
-    });
+    if (elements.btnHint) {
+        elements.btnHint.addEventListener('click', () => {
+            if (window.soundManager) window.soundManager.playTap();
+            if (elements.hintDrawer) elements.hintDrawer.classList.toggle('active');
+        });
+    }
 
     // Reveal Solution
-    elements.btnSolution.addEventListener('click', () => {
-        if (window.soundManager) window.soundManager.playTap();
-        const ch = CHALLENGES[state.currentChallengeIndex];
-        if (confirm('Tampilkan kode solusi untuk tantangan ini? Kodemu saat ini akan diganti.')) {
-            elements.editor.value = state.currentLanguage === 'golang'
-                ? CodeTranspiler.pseudocodeToGo(ch.solution)
-                : ch.solution;
-            updateLineNumbers();
-        }
-    });
+    if (elements.btnSolution) {
+        elements.btnSolution.addEventListener('click', () => {
+            if (window.soundManager) window.soundManager.playTap();
+            const ch = CHALLENGES && CHALLENGES[state.currentChallengeIndex];
+            if (ch && confirm('Tampilkan kode solusi untuk tantangan ini? Kodemu saat ini akan diganti.')) {
+                elements.editor.value = state.currentLanguage === 'golang'
+                    ? CodeTranspiler.pseudocodeToGo(ch.solution)
+                    : ch.solution;
+                updateLineNumbers();
+            }
+        });
+    }
 
     // =========================================================================
     // Resizable Panels, Dynamic Layout Shifting & Scrolling Features
@@ -2373,7 +2412,7 @@ endprogram`;
 
         printConsole('🐾 Mode Per Langkah aktif. Klik "Lanjut (Step)" untuk melangkah.', 'system');
 
-        if (state.interpreter.instructions.length > 0) {
+        if (state.interpreter.instructions && state.interpreter.instructions.length > 0) {
             setLineHighlight(state.interpreter.instructions[0].lineNum);
         }
     }
@@ -2425,81 +2464,88 @@ endprogram`;
     // =========================================================================
     // Challenge Verification & Test Runner (Works for both Pseudocode & Go)
     // =========================================================================
-    elements.btnCheckSolution.addEventListener('click', async () => {
-        if (window.soundManager) window.soundManager.playTap();
-        stopStepExecution();
+    if (elements.btnCheckSolution) {
+        elements.btnCheckSolution.addEventListener('click', async () => {
+            if (window.soundManager) window.soundManager.playTap();
+            stopStepExecution();
 
-        const challenge = CHALLENGES[state.currentChallengeIndex];
-        const code = elements.editor.value;
+            const challenge = CHALLENGES && CHALLENGES[state.currentChallengeIndex];
+            if (!challenge) return;
+            const code = elements.editor ? elements.editor.value : '';
 
-        webTerminal.print(`🔎 Menguji solusi untuk "${challenge.title}" (${state.currentLanguage.toUpperCase()})...`, 'cyan');
+            webTerminal.print(`🔎 Menguji solusi untuk "${challenge.title}" (${state.currentLanguage.toUpperCase()})...`, 'cyan');
 
-        let allPassed = true;
-        let passCount = 0;
-        const total = challenge.testCases.length;
-        elements.testcasesList.innerHTML = '';
+            let allPassed = true;
+            let passCount = 0;
+            const total = challenge.testCases ? challenge.testCases.length : 0;
+            if (elements.testcasesList) elements.testcasesList.innerHTML = '';
 
-        for (let i = 0; i < total; i++) {
-            const tc = challenge.testCases[i];
+            for (let i = 0; i < total; i++) {
+                const tc = challenge.testCases[i];
 
-            try {
-                let actualOutputs = [];
+                try {
+                    let actualOutputs = [];
 
-                if (state.currentLanguage === 'golang') {
-                    const goInterp = new GoInterpreter(null);
-                    const res = await goInterp.run(code, [...tc.inputs]);
-                    actualOutputs = res.outputs.map(s => s.trim());
-                } else {
-                    const interp = new PseudocodeInterpreter();
-                    interp.compile(code);
-                    const result = interp.runAll([...tc.inputs]);
-                    actualOutputs = result.output.map(s => s.trim());
-                }
+                    if (state.currentLanguage === 'golang') {
+                        const goInterp = new GoInterpreter(null);
+                        const res = await goInterp.run(code, [...tc.inputs]);
+                        actualOutputs = res.outputs.map(s => s.trim());
+                    } else {
+                        const interp = new PseudocodeInterpreter();
+                        interp.compile(code);
+                        const result = interp.runAll([...tc.inputs]);
+                        actualOutputs = result.output.map(s => s.trim());
+                    }
 
-                const expectedOutputs = tc.expected.map(s => s.trim());
-                const isMatch = actualOutputs.join('\n').toLowerCase() === expectedOutputs.join('\n').toLowerCase();
+                    const expectedOutputs = tc.expected.map(s => s.trim());
+                    const isMatch = actualOutputs.join('\n').toLowerCase() === expectedOutputs.join('\n').toLowerCase();
 
-                if (isMatch) {
-                    passCount++;
-                } else {
+                    if (isMatch) {
+                        passCount++;
+                    } else {
+                        allPassed = false;
+                    }
+
+                    renderTestResultItem(i + 1, tc, actualOutputs, isMatch);
+                } catch (err) {
                     allPassed = false;
+                    renderTestResultItem(i + 1, tc, [`Error: ${err.message}`], false, true);
+                }
+            }
+
+            if (elements.testScoreBadge) {
+                elements.testScoreBadge.textContent = `${passCount} / ${total} Lolos`;
+                elements.testScoreBadge.className = `test-score-badge ${allPassed ? 'passed' : 'failed'}`;
+            }
+
+            if (allPassed) {
+                if (window.soundManager) window.soundManager.playSuccess();
+                state.completedChallenges.add(challenge.id);
+                localStorage.setItem('pseudocode_completed', JSON.stringify([...state.completedChallenges]));
+
+                if (window.confetti) {
+                    window.confetti({
+                        particleCount: 80,
+                        spread: 70,
+                        origin: { y: 0.6 }
+                    });
                 }
 
-                renderTestResultItem(i + 1, tc, actualOutputs, isMatch);
-            } catch (err) {
-                allPassed = false;
-                renderTestResultItem(i + 1, tc, [`Error: ${err.message}`], false, true);
+                if (elements.problemStatus) {
+                    elements.problemStatus.textContent = 'Selesai';
+                    elements.problemStatus.className = 'ios-badge badge-status completed';
+                }
+
+                webTerminal.print(`🎉 SEMPURNA! Semua ${total} kasus uji lolos verifikasi!`, 'success');
+                showNotification('Kode Berhasil', 'Semua kasus uji lolos verifikasi dengan benar!', 'success', 'check-circle-2');
+                renderSidebar();
+            } else {
+                if (window.soundManager) window.soundManager.playError();
+                webTerminal.print(`❌ Beberapa kasus uji belum sesuai. Periksa logika kodemu!`, 'error');
+                showNotification('Kode Gagal', `${passCount} dari ${total} kasus uji lolos.`, 'error', 'alert-circle');
             }
-        }
-
-        elements.testScoreBadge.textContent = `${passCount} / ${total} Lolos`;
-        elements.testScoreBadge.className = `test-score-badge ${allPassed ? 'passed' : 'failed'}`;
-
-        if (allPassed) {
-            if (window.soundManager) window.soundManager.playSuccess();
-            state.completedChallenges.add(challenge.id);
-            localStorage.setItem('pseudocode_completed', JSON.stringify([...state.completedChallenges]));
-
-            if (window.confetti) {
-                window.confetti({
-                    particleCount: 80,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
-            }
-
-            elements.problemStatus.textContent = 'Selesai';
-            elements.problemStatus.className = 'ios-badge badge-status completed';
-
-            webTerminal.print(`🎉 SEMPURNA! Semua ${total} kasus uji lolos verifikasi!`, 'success');
-            showNotification('Kode Berhasil', 'Semua kasus uji lolos verifikasi dengan benar!', 'success', 'check-circle-2');
-            renderSidebar();
-        } else {
-            if (window.soundManager) window.soundManager.playError();
-            webTerminal.print(`❌ Beberapa kasus uji belum sesuai. Periksa logika kodemu!`, 'error');
-            showNotification('Kode Gagal', `${passCount} dari ${total} kasus uji lolos.`, 'error', 'alert-circle');
-        }
-    });
+        });
+    }
 
     function renderTestResultItem(index, tc, actualOutputs, isMatch, isError = false) {
         const item = document.createElement('div');
@@ -2525,7 +2571,7 @@ endprogram`;
             </div>
         `;
 
-        elements.testcasesList.appendChild(item);
+        if (elements.testcasesList) elements.testcasesList.appendChild(item);
     }
 
     // =========================================================================
@@ -3179,12 +3225,8 @@ endprogram`;
     if (elements.btnCopyAiSolution) {
         elements.btnCopyAiSolution.addEventListener('click', () => {
             if (!currentAiCorrectedCode) return;
-            navigator.clipboard.writeText(currentAiCorrectedCode).then(() => {
-                showNotification('Tersalin', 'Kode solusi disalin ke clipboard.', 'info', 'copy');
-                if (window.soundManager) window.soundManager.playTap();
-            }).catch(() => {
-                showNotification('Gagal Menyalin', 'Izin clipboard ditolak browser.', 'error', 'alert-circle');
-            });
+            copyTextToClipboard(currentAiCorrectedCode, 'Tersalin', 'Kode solusi disalin ke clipboard.');
+            if (window.soundManager) window.soundManager.playTap();
         });
     }
 
