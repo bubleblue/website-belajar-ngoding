@@ -911,6 +911,14 @@ func main() {
     // Tab Switching (Challenges / Playground / Saved Programs / Cheatsheet)
     // =========================================================================
     function switchTab(tab) {
+        if (tab === 'ai-assistant') {
+            openAiModal();
+            document.querySelectorAll('[data-tab]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === 'ai-assistant');
+            });
+            return;
+        }
+
         if (tab === 'cheatsheet') {
             openCheatsheet();
             document.querySelectorAll('[data-tab]').forEach(btn => {
@@ -2994,6 +3002,9 @@ endprogram`;
         if (!elements.aiModalOverlay) return;
         if (window.soundManager) window.soundManager.playTap();
         elements.aiModalOverlay.classList.remove('active');
+        document.querySelectorAll('[data-tab]').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === state.activeTab);
+        });
     }
 
     // Toggle problem source buttons

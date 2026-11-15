@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=20261115-4">
+    <link rel="stylesheet" href="css/style.css?v=20261116-1">
 </head>
 <body class="ios-theme-light">
     <!-- Dynamic Island / Toast Notification -->
@@ -53,6 +53,10 @@
                     <button class="segment-btn" data-tab="playground">
                         <i data-lucide="code-2"></i>
                         <span>Playground</span>
+                    </button>
+                    <button class="segment-btn" data-tab="ai-assistant" id="tab-nav-ai" title="AI Pembantu &amp; Pembaca Soal">
+                        <i data-lucide="sparkles"></i>
+                        <span>AI Pembantu</span>
                     </button>
                     <button class="segment-btn" data-tab="saved-programs">
                         <i data-lucide="folder-code"></i>
@@ -144,6 +148,17 @@
                             <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
                         </button>
 
+                        <button class="sidebar-nav-item" data-tab="ai-assistant">
+                            <div class="sidebar-nav-icon icon-ai" style="background: rgba(88, 86, 214, 0.15); color: #5856D6;">
+                                <i data-lucide="sparkles"></i>
+                            </div>
+                            <div class="sidebar-nav-content">
+                                <div class="sidebar-nav-title">AI Pembantu Soal</div>
+                                <div class="sidebar-nav-subtitle">Pemeriksa logika &amp; tutor kode</div>
+                            </div>
+                            <i data-lucide="chevron-right" class="sidebar-nav-chevron"></i>
+                        </button>
+
                         <button class="sidebar-nav-item" data-tab="saved-programs">
                             <div class="sidebar-nav-icon icon-saved">
                                 <i data-lucide="folder-code"></i>
@@ -215,10 +230,6 @@
                             <h2 id="problem-title">Memuat Tantangan...</h2>
                         </div>
                         <div class="problem-actions">
-                            <button class="ios-button ios-button-primary ios-button-sm ios-btn-bounce" id="btn-ai-tutor" title="Tanya AI Pembantu untuk memeriksa soal dan kodemu">
-                                <i data-lucide="sparkles"></i>
-                                <span>Tanya AI</span>
-                            </button>
                             <button class="ios-button ios-button-secondary ios-button-sm" id="btn-hint">
                                 <i data-lucide="lightbulb"></i>
                                 <span>Petunjuk</span>
@@ -390,10 +401,6 @@
                                 <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-check-solution">
                                     <i data-lucide="check-circle-2"></i>
                                     <span>Periksa Jawaban</span>
-                                </button>
-                                <button class="ios-button ios-button-tinted ios-btn-bounce" id="btn-ai-assistant" title="Periksa kode dan soal dengan AI pembantu">
-                                    <i data-lucide="sparkles"></i>
-                                    <span>AI Pembantu</span>
                                 </button>
                                 <button class="ios-button ios-button-success ios-btn-bounce" id="btn-run-fast">
                                     <i data-lucide="play"></i>
@@ -1011,14 +1018,14 @@ endprogram</code></pre>
     <!-- Firebase SDK (Compat v10 for direct browser use) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261115-4"></script>
-    <script src="js/cloud-db.js?v=20261115-4"></script>
-    <script src="js/audio.js?v=20261115-4"></script>
-    <script src="js/interpreter.js?v=20261115-4"></script>
-    <script src="js/go-interpreter.js?v=20261115-4"></script>
-    <script src="js/terminal.js?v=20261115-4"></script>
-    <script src="js/challenges.js?v=20261115-4"></script>
-    <script src="js/ai-assistant.js?v=20261115-4"></script>
-    <script src="js/app.js?v=20261115-4"></script>
+    <script src="js/firebase-config.js?v=20261116-1"></script>
+    <script src="js/cloud-db.js?v=20261116-1"></script>
+    <script src="js/audio.js?v=20261116-1"></script>
+    <script src="js/interpreter.js?v=20261116-1"></script>
+    <script src="js/go-interpreter.js?v=20261116-1"></script>
+    <script src="js/terminal.js?v=20261116-1"></script>
+    <script src="js/challenges.js?v=20261116-1"></script>
+    <script src="js/ai-assistant.js?v=20261116-1"></script>
+    <script src="js/app.js?v=20261116-1"></script>
 </body>
 </html>
