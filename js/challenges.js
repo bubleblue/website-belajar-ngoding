@@ -95,8 +95,8 @@ endprogram`,
         description: 'Menerima masukan sebuah bilangan bulat `bilangan`. Periksa apakah bilangan tersebut **Genap** atau **Ganjil**. Jika habis dibagi 2 (`bilangan mod 2 = 0`), cetak `"Genap"`, selain itu cetak `"Ganjil"`.',
         instructions: [
             'Gunakan `input(bilangan)`.',
-            'Gunakan percabangan `jika bilangan mod 2 = 0 maka ... lainnya ... selesai_jika`.',
-            'Cetak `"Genap"` jika benar, dan `"Ganjil"` di dalam blok `lainnya`.'
+            'Gunakan percabangan `if bilangan mod 2 = 0 then ... else ... endif`.',
+            'Cetak `"Genap"` jika benar, dan `"Ganjil"` di dalam blok `else`.'
         ],
         hint: 'Gunakan operator `mod` untuk menghitung sisa bagi bilangan dengan 2.',
         starterCode: `program cek_ganjil_genap
@@ -106,22 +106,22 @@ kamus
 algoritma
     input(bilangan)
 
-    jika bilangan mod 2 = 0 maka
+    if bilangan mod 2 = 0 then
         output("Genap")
-    lainnya
+    else
         output("Ganjil")
-    selesai_jika
+    endif
 endprogram`,
         solution: `program cek_ganjil_genap
 kamus
     bilangan : integer
 algoritma
     input(bilangan)
-    jika bilangan mod 2 = 0 maka
+    if bilangan mod 2 = 0 then
         output("Genap")
-    lainnya
+    else
         output("Ganjil")
-    selesai_jika
+    endif
 endprogram`,
         testCases: [
             {
@@ -154,10 +154,10 @@ endprogram`,
         description: 'Siswa dinyatakan **"LULUS"** jika nilai ujian yang dimasukkan bernilai **75 atau lebih** (`nilai >= 75`). Jika nilainya di bawah 75, maka siswa dinyatakan **"REMIDI"**.',
         instructions: [
             'Minta masukan variabel `nilai` dengan `input(nilai)`.',
-            'Gunakan kondisi `jika nilai >= 75 maka`.',
+            'Gunakan kondisi `if nilai >= 75 then`.',
             'Cetak `"LULUS"` atau `"REMIDI"`.'
         ],
-        hint: 'Perhatikan tanda `>=` (lebih besar atau sama dengan) dan tutup percabangan dengan `selesai_jika`.',
+        hint: 'Perhatikan tanda `>=` (lebih besar atau sama dengan) dan tutup percabangan dengan `endif`.',
         starterCode: `program status_kelulusan
 kamus
     nilai : integer
@@ -166,22 +166,22 @@ algoritma
     input(nilai)
     
     // tulis logika kelulusan di sini:
-    jika nilai >= 75 maka
+    if nilai >= 75 then
         output("LULUS")
-    lainnya
+    else
         output("REMIDI")
-    selesai_jika
+    endif
 endprogram`,
         solution: `program status_kelulusan
 kamus
     nilai : integer
 algoritma
     input(nilai)
-    jika nilai >= 75 maka
+    if nilai >= 75 then
         output("LULUS")
-    lainnya
+    else
         output("REMIDI")
-    selesai_jika
+    endif
 endprogram`,
         testCases: [
             {
@@ -206,13 +206,13 @@ endprogram`,
         title: '5. Nilai Maksimum (Terbesar)',
         category: 'Percabangan',
         difficulty: 'Sedang',
-        description: 'Menerima dua angka `a` dan `b`. Tentukan dan cetak angka mana yang nilainya lebih besar menggunakan `jika ... maka`. Jika nilainya sama, cetak salah satunya.',
+        description: 'Menerima dua angka `a` dan `b`. Tentukan dan cetak angka mana yang nilainya lebih besar menggunakan `if ... then`. Jika nilainya sama, cetak salah satunya.',
         instructions: [
             'Gunakan `input(a)` dan `input(b)`.',
             'Bandingkan apakah `a > b`.',
             'Cetak nilai terbesar dengan `output()`.'
         ],
-        hint: 'Jika `a > b` maka `output(a)`, lainnya `output(b)`.',
+        hint: 'Jika `a > b` maka `output(a)`, lainnya `output(b)`. Tutup dengan `endif`.',
         starterCode: `program nilai_terbesar
 kamus
     a, b : integer
@@ -222,11 +222,11 @@ algoritma
     input(b)
 
     // tentukan angka terbesar:
-    jika a > b maka
+    if a > b then
         output(a)
-    lainnya
+    else
         output(b)
-    selesai_jika
+    endif
 endprogram`,
         solution: `program nilai_terbesar
 kamus
@@ -234,11 +234,11 @@ kamus
 algoritma
     input(a)
     input(b)
-    jika a > b maka
+    if a > b then
         output(a)
-    lainnya
+    else
         output(b)
-    selesai_jika
+    endif
 endprogram`,
         testCases: [
             {
@@ -263,12 +263,12 @@ endprogram`,
         title: '6. Perulangan Angka 1 sampai N',
         category: 'Perulangan',
         difficulty: 'Sedang',
-        description: 'Menerima masukan sebuah angka `n`. Cetak deret angka dari 1 sampai dengan `n` secara berurutan baris demi baris menggunakan perulangan `untuk ... sampai ... lakukan`.',
+        description: 'Menerima masukan sebuah angka `n`. Cetak deret angka dari 1 sampai dengan `n` secara berurutan baris demi baris menggunakan perulangan `for ... to ... do`.',
         instructions: [
             'Minta masukan `n` dengan `input(n)`.',
-            'Gunakan loop `untuk i <- 1 sampai n lakukan`.',
+            'Gunakan loop `for i <- 1 to n do`.',
             'Di dalam loop, cetak variabel pencacah dengan `output(i)`.',
-            'Tutup loop dengan `selesai_untuk`.'
+            'Tutup loop dengan `endfor`.'
         ],
         hint: 'Loop dimulai dari 1 sampai ke n.',
         starterCode: `program deret_angka
@@ -279,18 +279,18 @@ algoritma
     input(n)
 
     // lakukan perulangan dari 1 sampai n:
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         output(i)
-    selesai_untuk
+    endfor
 endprogram`,
         solution: `program deret_angka
 kamus
     n, i : integer
 algoritma
     input(n)
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         output(i)
-    selesai_untuk
+    endfor
 endprogram`,
         testCases: [
             {
@@ -313,11 +313,11 @@ endprogram`,
         description: 'Menerima sebuah bilangan bulat `n`. Hitunglah total penjumlahan angka dari 1 hingga `n` (contoh jika n=4 maka total = 1 + 2 + 3 + 4 = 10). Cetak hanya hasil total akhirnya.',
         instructions: [
             'Inisialisasi `total <- 0`.',
-            'Lakukan perulangan `i` dari 1 sampai `n`.',
+            'Lakukan perulangan `i` dari 1 sampai `n` (`for i <- 1 to n do`).',
             'Tambahkan nilai `i` ke `total`: `total <- total + i`.',
             'Setelah perulangan selesai, cetak `output(total)`.'
         ],
-        hint: 'Pastikan perintah `output(total)` diletakkan SETELAH `selesai_untuk`.',
+        hint: 'Pastikan perintah `output(total)` diletakkan SETELAH `endfor`.',
         starterCode: `program total_deret
 kamus
     n, i, total : integer
@@ -326,9 +326,9 @@ algoritma
     input(n)
     total <- 0
 
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         total <- total + i
-    selesai_untuk
+    endfor
 
     output(total)
 endprogram`,
@@ -338,9 +338,9 @@ kamus
 algoritma
     input(n)
     total <- 0
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         total <- total + i
-    selesai_untuk
+    endfor
     output(total)
 endprogram`,
         testCases: [
@@ -369,11 +369,11 @@ endprogram`,
         description: 'Menerima input `n`. Hitung nilai faktorial dari n (n! = 1 * 2 * ... * n). Contoh jika n = 4, maka 4! = 1 * 2 * 3 * 4 = 24. Cetak hasil akhirnya.',
         instructions: [
             'Inisialisasi variabel akumulator `hasil <- 1` (jangan mulai dari 0 karena perkalian).',
-            'Gunakan perulangan dari 1 sampai `n`.',
+            'Gunakan perulangan `for i <- 1 to n do`.',
             'Kalikan: `hasil <- hasil * i`.',
             'Cetak `output(hasil)` di luar perulangan.'
         ],
-        hint: 'Ingat perkalian identitas adalah 1: `hasil <- 1`.',
+        hint: 'Ingat perkalian identitas adalah 1: `hasil <- 1`. Tutup dengan `endfor`.',
         starterCode: `program hitung_faktorial
 kamus
     n, i, hasil : integer
@@ -382,9 +382,9 @@ algoritma
     input(n)
     hasil <- 1
 
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         hasil <- hasil * i
-    selesai_untuk
+    endfor
 
     output(hasil)
 endprogram`,
@@ -394,9 +394,9 @@ kamus
 algoritma
     input(n)
     hasil <- 1
-    untuk i <- 1 sampai n lakukan
+    for i <- 1 to n do
         hasil <- hasil * i
-    selesai_untuk
+    endfor
     output(hasil)
 endprogram`,
         testCases: [
@@ -429,7 +429,7 @@ endprogram`,
             'Jika tidak, `bayar <- totalBelanja`.',
             'Cetak nilai `bayar` dengan `output(bayar)`.'
         ],
-        hint: 'Diskon 10% dihitung dengan `totalBelanja * 0.1` atau `totalBelanja * 10 / 100`.',
+        hint: 'Diskon 10% dihitung dengan `totalBelanja * 0.1`. Gunakan `if ... then ... else ... endif`.',
         starterCode: `program hitung_diskon
 kamus
     totalBelanja, bayar : real
@@ -437,11 +437,11 @@ kamus
 algoritma
     input(totalBelanja)
 
-    jika totalBelanja >= 100000 maka
+    if totalBelanja >= 100000 then
         bayar <- totalBelanja - (totalBelanja * 0.1)
-    lainnya
+    else
         bayar <- totalBelanja
-    selesai_jika
+    endif
 
     output(bayar)
 endprogram`,
@@ -450,11 +450,11 @@ kamus
     totalBelanja, bayar : real
 algoritma
     input(totalBelanja)
-    jika totalBelanja >= 100000 maka
+    if totalBelanja >= 100000 then
         bayar <- totalBelanja - (totalBelanja * 0.1)
-    lainnya
+    else
         bayar <- totalBelanja
-    selesai_jika
+    endif
     output(bayar)
 endprogram`,
         testCases: [

@@ -935,11 +935,11 @@ algoritma
     
     output("halo ", nama, ", umurmu adalah ", umur)
     
-    jika umur >= 17 maka
+    if umur >= 17 then
         output("kamu sudah cukup umur!")
-    lainnya
+    else
         output("kamu masih anak-anak.")
-    selesai_jika
+    endif
 endprogram`;
                 }
                 updateLineNumbers();
@@ -1500,14 +1500,21 @@ endprogram`;
             { trigger: 'output', label: 'output(...)', insert: 'output()', cursorOffset: -1, badge: 'i/o', badgeColor: 'badge-func', desc: 'Menampilkan output' },
             { trigger: 'end', label: 'endprogram', insert: 'endprogram', badge: 'end', badgeColor: 'badge-pkg', desc: 'Penutup program' },
             { trigger: 'endprogram', label: 'endprogram', insert: 'endprogram', badge: 'end', badgeColor: 'badge-pkg', desc: 'Penutup program' },
-            { trigger: 'jik', label: 'jika kondisi maka ... selesai_jika', insert: 'jika kondisi maka\n    \nselesai_jika', cursorOffset: -14, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
-            { trigger: 'jika', label: 'jika kondisi maka ... selesai_jika', insert: 'jika kondisi maka\n    \nselesai_jika', cursorOffset: -14, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan jika' },
-            { trigger: 'unt', label: 'untuk i <- 1 sampai n lakukan', insert: 'untuk i <- 1 sampai 10 lakukan\n    \nselesai_untuk', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
-            { trigger: 'untuk', label: 'untuk i <- 1 sampai n lakukan', insert: 'untuk i <- 1 sampai 10 lakukan\n    \nselesai_untuk', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan untuk' },
-            { trigger: 'sela', label: 'selama kondisi lakukan', insert: 'selama kondisi lakukan\n    \nselesai_selama', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan selama' },
-            { trigger: 'selama', label: 'selama kondisi lakukan', insert: 'selama kondisi lakukan\n    \nselesai_selama', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan selama' },
-            { trigger: 'ula', label: 'ulangi ... sampai', insert: 'ulangi\n    \nsampai kondisi', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan ulangi' },
-            { trigger: 'ulangi', label: 'ulangi ... sampai', insert: 'ulangi\n    \nsampai kondisi', cursorOffset: -16, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan ulangi' },
+            { trigger: 'if', label: 'if kondisi then ... endif', insert: 'if kondisi then\n    \nendif', cursorOffset: -7, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan if' },
+            { trigger: 'ifelse', label: 'if kondisi then ... else ... endif', insert: 'if kondisi then\n    \nelse\n    \nendif', cursorOffset: -16, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan if-else' },
+            { trigger: 'for', label: 'for i <- 1 to n do ... endfor', insert: 'for i <- 1 to 10 do\n    \nendfor', cursorOffset: -8, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan for..to..do' },
+            { trigger: 'downto', label: 'for i <- n downto 1 do ... endfor', insert: 'for i <- 10 downto 1 do\n    \nendfor', cursorOffset: -8, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan mundur downto' },
+            { trigger: 'while', label: 'while kondisi do ... endwhile', insert: 'while kondisi do\n    \nendwhile', cursorOffset: -10, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan while..do' },
+            { trigger: 'repeat', label: 'repeat ... until kondisi', insert: 'repeat\n    \nuntil kondisi', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan repeat..until' },
+            // Aliases for Indonesian triggers (output English)
+            { trigger: 'jik', label: 'if kondisi then ... endif', insert: 'if kondisi then\n    \nendif', cursorOffset: -7, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan if' },
+            { trigger: 'jika', label: 'if kondisi then ... endif', insert: 'if kondisi then\n    \nendif', cursorOffset: -7, badge: 'cond', badgeColor: 'badge-ctrl', desc: 'Percabangan if' },
+            { trigger: 'unt', label: 'for i <- 1 to n do ... endfor', insert: 'for i <- 1 to 10 do\n    \nendfor', cursorOffset: -8, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan for..to..do' },
+            { trigger: 'untuk', label: 'for i <- 1 to n do ... endfor', insert: 'for i <- 1 to 10 do\n    \nendfor', cursorOffset: -8, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan for..to..do' },
+            { trigger: 'sela', label: 'while kondisi do ... endwhile', insert: 'while kondisi do\n    \nendwhile', cursorOffset: -10, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan while..do' },
+            { trigger: 'selama', label: 'while kondisi do ... endwhile', insert: 'while kondisi do\n    \nendwhile', cursorOffset: -10, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan while..do' },
+            { trigger: 'ula', label: 'repeat ... until kondisi', insert: 'repeat\n    \nuntil kondisi', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan repeat..until' },
+            { trigger: 'ulangi', label: 'repeat ... until kondisi', insert: 'repeat\n    \nuntil kondisi', cursorOffset: -15, badge: 'loop', badgeColor: 'badge-ctrl', desc: 'Perulangan repeat..until' },
             { trigger: 'fun', label: 'function nama() -> tipe', insert: 'function nama() -> integer\n    \nendfunction', cursorOffset: -12, badge: 'func', badgeColor: 'badge-func', desc: 'Subprogram fungsi' },
             { trigger: 'proc', label: 'procedure nama()', insert: 'procedure nama()\n    \nendprocedure', cursorOffset: -13, badge: 'func', badgeColor: 'badge-func', desc: 'Subprogram prosedur' },
             { trigger: 'int', label: 'integer', insert: 'integer', badge: 'type', badgeColor: 'badge-type', desc: 'Tipe bilangan bulat' },
