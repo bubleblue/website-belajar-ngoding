@@ -2892,6 +2892,6 @@ endprogram`;
 
     // Trigger 5: Dynamic Island - Selamat Datang
     setTimeout(() => {
-        showNotification('Selamat Datang', 'Belajar Pseudocode & Golang dengan Terminal Interaktif', 'welcome', 'sparkles');
+        showNotification('Selamat Datang', 'Belajar Pseudocode & Golang ', 'welcome', 'sparkles');
     }, 700);
 });

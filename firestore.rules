@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Izinkan read dan write ke semua dokumen (Mode Dev / Edukasi)
+    // Untuk menerapkan: Salin isi file ini ke Firebase Console -> Firestore Database -> Rules -> Publish
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
