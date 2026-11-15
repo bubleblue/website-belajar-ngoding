@@ -797,25 +797,6 @@ class CodeTranspiler {
                 continue;
             }
 
-            // Variable declaration in kamus
-            if (inKamus || (!line.includes('<-') && !line.includes(':=') && line.includes(':')) || /^var\b/i.test(line)) {
-                if (line.includes(':')) {
-                    const [varsPart, typePart] = line.split(':');
-                    const vars = varsPart.replace(/^var\b/i, '').split(',').map(v => v.trim()).filter(Boolean);
-                    const rawType = (typePart || '').trim().toLowerCase();
-                    const goType = CodeTranspiler.pseudoToGoType(typePart);
-
-                    vars.forEach(v => {
-                        declaredVars.add(v);
-                        if (rawType.includes('char') || rawType.includes('karakter')) {
-                            declaredCharVars.add(v);
-                        }
-                    });
-                    appendGo(`    var ${vars.join(', ')} ${goType}`);
-                    continue;
-                }
-            }
-
             // Input: input(x) or input(a, b) or read/readln/scan
             if (/^(?:input|baca|masukan|read|readln|scan|scanln)\s*\(/i.test(line)) {
                 const inner = CodeTranspiler.extractParens(line);
@@ -834,6 +815,25 @@ class CodeTranspiler {
                     const args = CodeTranspiler.splitArgs(inner);
                     const goArgs = args.map(a => declaredCharVars.has(a) ? `string(${a})` : a);
                     appendGo(`    fmt.Println(${goArgs.join(', ')})`);
+                    continue;
+                }
+            }
+
+            // Variable declaration in kamus
+            if ((inKamus && line.includes(':')) || /^var\b/i.test(line)) {
+                if (line.includes(':')) {
+                    const [varsPart, typePart] = line.split(':');
+                    const vars = varsPart.replace(/^var\b/i, '').split(',').map(v => v.trim()).filter(Boolean);
+                    const rawType = (typePart || '').trim().toLowerCase();
+                    const goType = CodeTranspiler.pseudoToGoType(typePart);
+
+                    vars.forEach(v => {
+                        declaredVars.add(v);
+                        if (rawType.includes('char') || rawType.includes('karakter')) {
+                            declaredCharVars.add(v);
+                        }
+                    });
+                    appendGo(`    var ${vars.join(', ')} ${goType}`);
                     continue;
                 }
             }
@@ -1022,7 +1022,17 @@ class CodeTranspiler {
 
         for (let i = 0; i < lines.length; i++) {
             let line = lines[i].trim();
-            if (!line || line.startsWith('//') || /^package\b|^import\b/i.test(line)) {
+            if (!line || line.startsWith('//') || /^package\b/i.test(line)) {
+                continue;
+            }
+
+            // Strip import statements (single-line or multi-line block)
+            if (/^import\b/i.test(line)) {
+                if (line.includes('(')) {
+                    while (i < lines.length && !lines[i].includes(')')) {
+                        i++;
+                    }
+                }
                 continue;
             }
 
@@ -1156,8 +1166,8 @@ class CodeTranspiler {
                 continue;
             }
 
-            // Var declaration: var a, b int or var x float64
-            const varMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+)\s+(int|int64|int32|string|float64|float32|bool)/i);
+            // Var declaration: var a, b int or var x float64 or var c byte
+            const varMatch = line.match(/^var\s+([a-zA-Z0-9_,\s]+)\s+(int|int64|int32|string|float64|float32|bool|byte|rune)/i);
             if (varMatch) {
                 const names = varMatch[1].trim();
                 const typeStr = varMatch[2].toLowerCase();
@@ -1201,6 +1211,7 @@ class CodeTranspiler {
                             outExpr = outExpr.substring(firstComma + 1).trim();
                         }
                     }
+                    outExpr = outExpr.replace(/\bstring\(([a-zA-Z0-9_]+)\)/g, '$1');
                     appendBody(`    output(${outExpr})`);
                     continue;
                 }
@@ -1267,7 +1278,8 @@ class CodeTranspiler {
             const shortMatch = line.match(/^([a-zA-Z0-9_]+)\s*:=\s*(.+)$/);
             if (shortMatch) {
                 const varName = shortMatch[1].trim();
-                const valExpr = shortMatch[2].trim();
+                let valExpr = shortMatch[2].trim();
+                valExpr = valExpr.replace(/(?:\[\d*\](?:int\d*|uint\d*|float\d*|string|bool|byte|rune|any))\s*\{([^}]*)\}/g, '[$1]');
                 if (!declaredVars.has(varName)) {
                     declaredVars.add(varName);
                     let pType = 'integer';
@@ -1275,7 +1287,7 @@ class CodeTranspiler {
                         pType = valExpr.length === 3 && valExpr[0] === "'" ? 'char' : 'string';
                     } else if (/^(?:true|false)$/i.test(valExpr)) {
                         pType = 'boolean';
-                    } else if (/^\d+\.\d+$/.test(valExpr)) {
+                    } else if (/^\d+\.\d+$/.test(valExpr) || /math\.(?:Sqrt|Pow|Sin|Cos|Tan|Log|Log10)\b/i.test(valExpr)) {
                         pType = 'real';
                     } else if (/^\d+$/.test(valExpr)) {
                         pType = 'integer';

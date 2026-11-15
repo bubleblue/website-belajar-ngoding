@@ -115,6 +115,7 @@ class PseudocodeInterpreter {
             let current = '';
             inQuote = false;
             qChar = '';
+            let parenDepth = 0;
             for (let c = 0; c < line.length; c++) {
                 const ch = line[c];
                 if ((ch === '"' || ch === "'") && (c === 0 || line[c - 1] !== '\\')) {
@@ -125,7 +126,13 @@ class PseudocodeInterpreter {
                         inQuote = false;
                     }
                     current += ch;
-                } else if (!inQuote && ch === ';') {
+                } else if (!inQuote && ch === '(') {
+                    parenDepth++;
+                    current += ch;
+                } else if (!inQuote && ch === ')') {
+                    parenDepth = Math.max(0, parenDepth - 1);
+                    current += ch;
+                } else if (!inQuote && parenDepth === 0 && ch === ';') {
                     if (current.trim()) statements.push(current.trim());
                     current = '';
                 } else {
@@ -1050,7 +1057,8 @@ class PseudocodeInterpreter {
                 log: Math.log,
                 log10: Math.log10,
                 PI: Math.PI,
-                E: Math.E
+                E: Math.E,
+                string: (v) => typeof v === 'number' ? String.fromCharCode(v) : String(v)
             };
 
             const mathKeys = Object.keys(scopeMath);
