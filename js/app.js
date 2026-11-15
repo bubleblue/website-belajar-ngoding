@@ -284,6 +284,39 @@ func main() {
         btnCheatsheetDone: document.getElementById('btn-cheatsheet-done'),
         btnOpenHelp: document.getElementById('btn-open-help'),
 
+        // AI Assistant Elements
+        btnAiTutor: document.getElementById('btn-ai-tutor'),
+        btnAiAssistant: document.getElementById('btn-ai-assistant'),
+        aiModalOverlay: document.getElementById('ai-modal-overlay'),
+        btnCloseAiModal: document.getElementById('btn-close-ai-modal'),
+        btnDismissAiModal: document.getElementById('btn-dismiss-ai-modal'),
+        btnAiUseActiveProblem: document.getElementById('btn-ai-use-active-problem'),
+        btnAiUseCustomProblem: document.getElementById('btn-ai-use-custom-problem'),
+        aiProblemInput: document.getElementById('ai-problem-input'),
+        aiCodeLangBadge: document.getElementById('ai-code-lang-badge'),
+        aiCodePreviewText: document.getElementById('ai-code-preview-text'),
+        btnTriggerAiAnalysis: document.getElementById('btn-trigger-ai-analysis'),
+        aiBtnAnalyzeLabel: document.getElementById('ai-btn-analyze-label'),
+        aiResultContainer: document.getElementById('ai-result-container'),
+        aiStatusCard: document.getElementById('ai-status-card'),
+        aiStatusIcon: document.getElementById('ai-status-icon'),
+        aiStatusTitle: document.getElementById('ai-status-title'),
+        aiStatusSummary: document.getElementById('ai-status-summary'),
+        aiFaultyLineBanner: document.getElementById('ai-faulty-line-banner'),
+        aiFaultyLineBadge: document.getElementById('ai-faulty-line-badge'),
+        aiFaultyCodeSnippet: document.getElementById('ai-faulty-code-snippet'),
+        aiHintsList: document.getElementById('ai-hints-list'),
+        btnRevealCorrectCode: document.getElementById('btn-reveal-correct-code'),
+        solutionRevealedBody: document.getElementById('solution-revealed-body'),
+        btnCopyAiSolution: document.getElementById('btn-copy-ai-solution'),
+        btnApplyAiSolution: document.getElementById('btn-apply-ai-solution'),
+        aiRevealedCodeText: document.getElementById('ai-revealed-code-text'),
+        aiExplanationText: document.getElementById('ai-explanation-text'),
+        btnToggleAiSettings: document.getElementById('btn-toggle-ai-settings'),
+        aiSettingsContent: document.getElementById('ai-settings-content'),
+        geminiApiKeyInput: document.getElementById('gemini-api-key-input'),
+        btnSaveGeminiKey: document.getElementById('btn-save-gemini-key'),
+
         // Dynamic Island
         dynamicIsland: document.getElementById('dynamic-island'),
         islandIcon: document.getElementById('island-icon'),
@@ -2681,6 +2714,9 @@ endprogram`;
             if (elements.cheatsheetOverlay && elements.cheatsheetOverlay.classList.contains('active')) {
                 closeCheatsheet();
             }
+            if (elements.aiModalOverlay && elements.aiModalOverlay.classList.contains('active')) {
+                closeAiModal();
+            }
         }
     });
 
@@ -2888,6 +2924,291 @@ endprogram`;
                 }
             }
         }).catch(() => {});
+    }
+
+    // =========================================================================
+    // AI Code Assistant & Problem Reader Controller
+    // =========================================================================
+    let currentAiCorrectedCode = '';
+
+    function getActiveProblemText() {
+        if (state.activeChallengeId && window.CHALLENGES) {
+            const ch = window.CHALLENGES.find(c => c.id === state.activeChallengeId);
+            if (ch) {
+                let text = `Judul: ${ch.title}\nKategori: ${ch.category} (${ch.difficulty})\nDeskripsi: ${ch.description}`;
+                if (ch.instructions && ch.instructions.length) {
+                    text += `\nInstruksi:\n- ` + ch.instructions.join('\n- ');
+                }
+                return text;
+            }
+        }
+        return '';
+    }
+
+    function openAiModal() {
+        if (!elements.aiModalOverlay) return;
+        if (window.soundManager) window.soundManager.playTap();
+
+        // 1. Populate code preview & lang badge
+        const currentCode = elements.editor ? elements.editor.value : '';
+        if (elements.aiCodePreviewText) {
+            elements.aiCodePreviewText.textContent = currentCode.trim() || '// (Editor kosong)';
+        }
+        if (elements.aiCodeLangBadge) {
+            elements.aiCodeLangBadge.textContent = state.currentLanguage === 'golang' ? 'Golang' : 'Pseudocode';
+            elements.aiCodeLangBadge.className = `ios-badge ${state.currentLanguage === 'golang' ? 'badge-go' : ''}`;
+        }
+
+        // 2. Setup problem input
+        const activeProb = getActiveProblemText();
+        if (activeProb) {
+            if (elements.aiProblemInput) elements.aiProblemInput.value = activeProb;
+            if (elements.btnAiUseActiveProblem) elements.btnAiUseActiveProblem.classList.add('active');
+            if (elements.btnAiUseCustomProblem) elements.btnAiUseCustomProblem.classList.remove('active');
+        } else {
+            if (elements.aiProblemInput && !elements.aiProblemInput.value.trim()) {
+                elements.aiProblemInput.placeholder = 'Ketik atau tempelkan soal pemrograman di sini...';
+            }
+            if (elements.btnAiUseActiveProblem) elements.btnAiUseActiveProblem.classList.remove('active');
+            if (elements.btnAiUseCustomProblem) elements.btnAiUseCustomProblem.classList.add('active');
+        }
+
+        // 3. Reset results
+        if (elements.aiResultContainer) elements.aiResultContainer.classList.add('is-hidden');
+        if (elements.solutionRevealedBody) elements.solutionRevealedBody.classList.add('is-hidden');
+        if (elements.btnRevealCorrectCode) {
+            elements.btnRevealCorrectCode.innerHTML = `<i data-lucide="unlock"></i><span>Lihat Kode Benar</span>`;
+        }
+        currentAiCorrectedCode = '';
+
+        // 4. Pre-fill API key
+        if (elements.geminiApiKeyInput && window.AIAssistant) {
+            elements.geminiApiKeyInput.value = window.AIAssistant.getApiKey();
+        }
+
+        elements.aiModalOverlay.classList.add('active');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeAiModal() {
+        if (!elements.aiModalOverlay) return;
+        if (window.soundManager) window.soundManager.playTap();
+        elements.aiModalOverlay.classList.remove('active');
+    }
+
+    // Toggle problem source buttons
+    if (elements.btnAiUseActiveProblem) {
+        elements.btnAiUseActiveProblem.addEventListener('click', () => {
+            elements.btnAiUseActiveProblem.classList.add('active');
+            if (elements.btnAiUseCustomProblem) elements.btnAiUseCustomProblem.classList.remove('active');
+            const activeProb = getActiveProblemText();
+            if (elements.aiProblemInput) elements.aiProblemInput.value = activeProb || 'Belum ada tantangan aktif dipilih.';
+        });
+    }
+
+    if (elements.btnAiUseCustomProblem) {
+        elements.btnAiUseCustomProblem.addEventListener('click', () => {
+            elements.btnAiUseCustomProblem.classList.add('active');
+            if (elements.btnAiUseActiveProblem) elements.btnAiUseActiveProblem.classList.remove('active');
+            if (elements.aiProblemInput) {
+                elements.aiProblemInput.value = '';
+                elements.aiProblemInput.placeholder = 'Tuliskan deskripsi soal, contoh input/output, dan ketentuan soalmu di sini...';
+                elements.aiProblemInput.focus();
+            }
+        });
+    }
+
+    // Trigger AI Analysis
+    if (elements.btnTriggerAiAnalysis) {
+        elements.btnTriggerAiAnalysis.addEventListener('click', async () => {
+            if (!window.AIAssistant) return;
+            if (window.soundManager) window.soundManager.playTap();
+
+            const problemText = elements.aiProblemInput ? elements.aiProblemInput.value.trim() : '';
+            const codeText = elements.editor ? elements.editor.value : '';
+            const lang = state.currentLanguage || 'pseudocode';
+
+            // Loading state
+            elements.btnTriggerAiAnalysis.disabled = true;
+            elements.btnTriggerAiAnalysis.style.opacity = '0.7';
+            if (elements.aiBtnAnalyzeLabel) elements.aiBtnAnalyzeLabel.textContent = 'AI Sedang Memeriksa Kodemu...';
+
+            try {
+                const result = await window.AIAssistant.analyze({
+                    problem: problemText,
+                    code: codeText,
+                    language: lang,
+                    challengeId: state.activeChallengeId
+                });
+
+                // Render Result
+                if (elements.aiResultContainer) elements.aiResultContainer.classList.remove('is-hidden');
+
+                // Status card
+                if (elements.aiStatusCard) {
+                    elements.aiStatusCard.className = `ai-status-card ${result.isCorrect ? 'success' : (result.faultyLine ? 'error' : 'warning')}`;
+                }
+                if (elements.aiStatusIcon) {
+                    elements.aiStatusIcon.innerHTML = `<i data-lucide="${result.isCorrect ? 'check-circle-2' : (result.faultyLine ? 'alert-triangle' : 'info')}"></i>`;
+                }
+                if (elements.aiStatusTitle) {
+                    elements.aiStatusTitle.textContent = result.statusTitle || (result.isCorrect ? 'Kode Sudah Benar' : 'Ditemukan Kesalahan');
+                }
+                if (elements.aiStatusSummary) {
+                    elements.aiStatusSummary.textContent = result.summary || '';
+                }
+
+                // Faulty line banner
+                if (elements.aiFaultyLineBanner) {
+                    if (result.faultyLine) {
+                        elements.aiFaultyLineBanner.classList.remove('is-hidden');
+                        if (elements.aiFaultyLineBadge) {
+                            elements.aiFaultyLineBadge.textContent = `Letak Kesalahan: Baris ${result.faultyLine}`;
+                        }
+                        if (elements.aiFaultyCodeSnippet) {
+                            elements.aiFaultyCodeSnippet.innerHTML = `<code>${result.faultySnippet ? result.faultySnippet.replace(/</g, '&lt;') : `Baris ${result.faultyLine}`}</code>`;
+                        }
+                    } else {
+                        elements.aiFaultyLineBanner.classList.add('is-hidden');
+                    }
+                }
+
+                // Progressive Hints
+                if (elements.aiHintsList) {
+                    elements.aiHintsList.innerHTML = '';
+                    const hints = result.hints || [];
+                    hints.forEach((h, i) => {
+                        const hintDiv = document.createElement('div');
+                        hintDiv.className = 'ai-hint-item';
+                        hintDiv.innerHTML = `
+                            <span class="ai-hint-badge">Hint ${h.level || (i + 1)}</span>
+                            <div class="ai-hint-content">
+                                <div class="ai-hint-title">${h.title || `Petunjuk #${i + 1}`}</div>
+                                <p class="ai-hint-desc">${h.content || ''}</p>
+                            </div>
+                        `;
+                        elements.aiHintsList.appendChild(hintDiv);
+                    });
+                }
+
+                // Prepare Solution Reveal (Crucial requirement)
+                currentAiCorrectedCode = result.correctedCode || codeText;
+                if (elements.aiRevealedCodeText) {
+                    elements.aiRevealedCodeText.textContent = currentAiCorrectedCode;
+                }
+                if (elements.aiExplanationText) {
+                    elements.aiExplanationText.textContent = result.explanation || 'Solusi di atas telah diperbaiki sesuai aturan dan logika yang tepat.';
+                }
+
+                // Reset solution visibility
+                if (elements.solutionRevealedBody) elements.solutionRevealedBody.classList.add('is-hidden');
+                if (elements.btnRevealCorrectCode) {
+                    elements.btnRevealCorrectCode.innerHTML = `<i data-lucide="unlock"></i><span>Lihat Kode Benar</span>`;
+                }
+
+                if (window.soundManager) {
+                    if (result.isCorrect) window.soundManager.playSuccess();
+                    else window.soundManager.playError();
+                }
+
+                if (window.lucide) window.lucide.createIcons();
+            } catch (err) {
+                alert('Gagal memeriksa kode: ' + err.message);
+            } finally {
+                elements.btnTriggerAiAnalysis.disabled = false;
+                elements.btnTriggerAiAnalysis.style.opacity = '1';
+                if (elements.aiBtnAnalyzeLabel) elements.aiBtnAnalyzeLabel.textContent = 'Periksa Kode & Analisis Kesalahan';
+            }
+        });
+    }
+
+    // Reveal Correct Code button
+    if (elements.btnRevealCorrectCode) {
+        elements.btnRevealCorrectCode.addEventListener('click', () => {
+            if (window.soundManager) window.soundManager.playTap();
+            if (elements.solutionRevealedBody) {
+                const isHidden = elements.solutionRevealedBody.classList.contains('is-hidden');
+                if (isHidden) {
+                    elements.solutionRevealedBody.classList.remove('is-hidden');
+                    elements.btnRevealCorrectCode.innerHTML = `<i data-lucide="eye-off"></i><span>Sembunyikan Solusi</span>`;
+                } else {
+                    elements.solutionRevealedBody.classList.add('is-hidden');
+                    elements.btnRevealCorrectCode.innerHTML = `<i data-lucide="unlock"></i><span>Lihat Kode Benar</span>`;
+                }
+                if (window.lucide) window.lucide.createIcons();
+            }
+        });
+    }
+
+    // Apply Solution to Editor
+    if (elements.btnApplyAiSolution) {
+        elements.btnApplyAiSolution.addEventListener('click', () => {
+            if (!currentAiCorrectedCode) return;
+            if (elements.editor) {
+                elements.editor.value = currentAiCorrectedCode;
+                updateLineNumbers();
+                highlightCode();
+            }
+            closeAiModal();
+            showNotification('Solusi Diterapkan', 'Kode yang benar telah dimasukkan ke editor.', 'success', 'check-circle-2');
+            if (window.soundManager) window.soundManager.playSuccess();
+        });
+    }
+
+    // Copy Solution Code
+    if (elements.btnCopyAiSolution) {
+        elements.btnCopyAiSolution.addEventListener('click', () => {
+            if (!currentAiCorrectedCode) return;
+            navigator.clipboard.writeText(currentAiCorrectedCode).then(() => {
+                showNotification('Tersalin', 'Kode solusi disalin ke clipboard.', 'info', 'copy');
+                if (window.soundManager) window.soundManager.playTap();
+            }).catch(() => {
+                showNotification('Gagal Menyalin', 'Izin clipboard ditolak browser.', 'error', 'alert-circle');
+            });
+        });
+    }
+
+    // Toggle Gemini Settings
+    if (elements.btnToggleAiSettings) {
+        elements.btnToggleAiSettings.addEventListener('click', () => {
+            if (elements.aiSettingsContent) {
+                const isHidden = elements.aiSettingsContent.classList.contains('is-hidden');
+                if (isHidden) {
+                    elements.aiSettingsContent.classList.remove('is-hidden');
+                    elements.btnToggleAiSettings.classList.add('open');
+                } else {
+                    elements.aiSettingsContent.classList.add('is-hidden');
+                    elements.btnToggleAiSettings.classList.remove('open');
+                }
+            }
+        });
+    }
+
+    // Save Gemini API Key
+    if (elements.btnSaveGeminiKey) {
+        elements.btnSaveGeminiKey.addEventListener('click', () => {
+            if (window.soundManager) window.soundManager.playTap();
+            const val = elements.geminiApiKeyInput ? elements.geminiApiKeyInput.value.trim() : '';
+            if (window.AIAssistant) {
+                window.AIAssistant.setApiKey(val);
+                if (val) {
+                    showNotification('Gemini API Terhubung', 'AI sekarang akan menggunakan model Google Gemini 1.5 Flash.', 'success', 'sparkles');
+                } else {
+                    showNotification('Key Dihapus', 'AI kembali menggunakan mesin analisis lokal bawaan.', 'info', 'check');
+                }
+            }
+        });
+    }
+
+    // Open AI Modal Triggers
+    if (elements.btnAiTutor) elements.btnAiTutor.addEventListener('click', openAiModal);
+    if (elements.btnAiAssistant) elements.btnAiAssistant.addEventListener('click', openAiModal);
+    if (elements.btnCloseAiModal) elements.btnCloseAiModal.addEventListener('click', closeAiModal);
+    if (elements.btnDismissAiModal) elements.btnDismissAiModal.addEventListener('click', closeAiModal);
+    if (elements.aiModalOverlay) {
+        elements.aiModalOverlay.addEventListener('click', (e) => {
+            if (e.target === elements.aiModalOverlay) closeAiModal();
+        });
     }
 
     // =========================================================================

@@ -12,7 +12,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Canvas Confetti -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=20261115-3">
+    <link rel="stylesheet" href="css/style.css?v=20261115-4">
 </head>
 <body class="ios-theme-light">
     <!-- Dynamic Island / Toast Notification -->
@@ -215,6 +215,10 @@
                             <h2 id="problem-title">Memuat Tantangan...</h2>
                         </div>
                         <div class="problem-actions">
+                            <button class="ios-button ios-button-primary ios-button-sm ios-btn-bounce" id="btn-ai-tutor" title="Tanya AI Pembantu untuk memeriksa soal dan kodemu">
+                                <i data-lucide="sparkles"></i>
+                                <span>Tanya AI</span>
+                            </button>
                             <button class="ios-button ios-button-secondary ios-button-sm" id="btn-hint">
                                 <i data-lucide="lightbulb"></i>
                                 <span>Petunjuk</span>
@@ -386,6 +390,10 @@
                                 <button class="ios-button ios-button-primary ios-btn-bounce" id="btn-check-solution">
                                     <i data-lucide="check-circle-2"></i>
                                     <span>Periksa Jawaban</span>
+                                </button>
+                                <button class="ios-button ios-button-tinted ios-btn-bounce" id="btn-ai-assistant" title="Periksa kode dan soal dengan AI pembantu">
+                                    <i data-lucide="sparkles"></i>
+                                    <span>AI Pembantu</span>
                                 </button>
                                 <button class="ios-button ios-button-success ios-btn-bounce" id="btn-run-fast">
                                     <i data-lucide="play"></i>
@@ -580,6 +588,160 @@
                     <i data-lucide="check"></i>
                     <span>Simpan Program</span>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Interactive AI Code Assistant & Problem Reader Modal -->
+    <div class="ios-modal-overlay" id="ai-modal-overlay">
+        <div class="ios-alert-dialog ai-assistant-dialog">
+            <div class="alert-header ai-alert-header">
+                <div class="ai-header-badge">
+                    <i data-lucide="sparkles"></i>
+                    <span>AI Code Assistant &amp; Tutor</span>
+                </div>
+                <button class="icon-button-sm ai-modal-close" id="btn-close-ai-modal" title="Tutup">
+                    <i data-lucide="x"></i>
+                </button>
+                <h3 class="alert-title ai-title">Pemeriksa Soal &amp; Logika Kode</h3>
+                <p class="alert-desc">AI akan membaca soalmu, memeriksa letak kesalahan kodemu, dan memberikan petunjuk bertingkat tanpa langsung membocorkan jawaban.</p>
+            </div>
+
+            <div class="alert-body ai-modal-body">
+                <!-- Section 1: Problem Reader (Soal) -->
+                <div class="ai-section">
+                    <div class="ai-section-header">
+                        <div class="ai-label-group">
+                            <i data-lucide="book-open"></i>
+                            <label for="ai-problem-input">Deskripsi Soal / Kasus:</label>
+                        </div>
+                        <div class="ai-problem-sources">
+                            <button type="button" class="ai-pill-btn active" id="btn-ai-use-active-problem">
+                                <i data-lucide="check"></i> Soal Tantangan Aktif
+                            </button>
+                            <button type="button" class="ai-pill-btn" id="btn-ai-use-custom-problem">
+                                <i data-lucide="edit-3"></i> Tulis Soal Sendiri
+                            </button>
+                        </div>
+                    </div>
+                    <textarea id="ai-problem-input" class="ios-input-field ai-textarea" rows="3" placeholder="Tuliskan atau tempel deskripsi soal di sini..."></textarea>
+                </div>
+
+                <!-- Section 2: Code Preview & Language -->
+                <div class="ai-section">
+                    <div class="ai-section-header">
+                        <div class="ai-label-group">
+                            <i data-lucide="code-2"></i>
+                            <label>Kodemu yang Akan Diperiksa:</label>
+                        </div>
+                        <span class="ios-badge" id="ai-code-lang-badge">Pseudocode</span>
+                    </div>
+                    <div class="ai-code-preview-box">
+                        <pre><code id="ai-code-preview-text">// Memuat kodemu...</code></pre>
+                    </div>
+                </div>
+
+                <!-- Analyze Button -->
+                <button type="button" class="ios-button ios-button-primary ai-analyze-btn ios-btn-bounce" id="btn-trigger-ai-analysis">
+                    <i data-lucide="sparkles"></i>
+                    <span id="ai-btn-analyze-label">Periksa Kode &amp; Analisis Kesalahan</span>
+                </button>
+
+                <!-- Section 3: AI Analysis Result (Hidden until analyzed) -->
+                <div class="ai-result-container is-hidden" id="ai-result-container">
+                    <!-- Status Banner -->
+                    <div class="ai-status-card" id="ai-status-card">
+                        <div class="ai-status-icon" id="ai-status-icon">
+                            <i data-lucide="alert-triangle"></i>
+                        </div>
+                        <div class="ai-status-info">
+                            <h4 id="ai-status-title">Ditemukan Kesalahan Logika</h4>
+                            <p id="ai-status-summary">Ringkasan kesalahan</p>
+                        </div>
+                    </div>
+
+                    <!-- Faulty Line Banner (if any) -->
+                    <div class="ai-faulty-line-banner is-hidden" id="ai-faulty-line-banner">
+                        <div class="faulty-line-header">
+                            <i data-lucide="map-pin"></i>
+                            <span id="ai-faulty-line-badge">Letak Kesalahan: Baris X</span>
+                        </div>
+                        <div class="faulty-code-preview" id="ai-faulty-code-snippet">
+                            <code>kode bermasalah</code>
+                        </div>
+                    </div>
+
+                    <!-- Progressive Hints (Bertingkat) -->
+                    <div class="ai-hints-section">
+                        <div class="ai-hints-header">
+                            <i data-lucide="lightbulb"></i>
+                            <h4>Petunjuk Pemecahan Masalah (Bertingkat):</h4>
+                        </div>
+                        <div class="ai-hints-list" id="ai-hints-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Solution Reveal Section -->
+                    <div class="ai-solution-reveal-card" id="ai-solution-reveal-card">
+                        <div class="solution-reveal-header">
+                            <div class="reveal-title-group">
+                                <i data-lucide="key-round"></i>
+                                <div>
+                                    <h5>Masih Bingung? Ingin Lihat Kode yang Benar?</h5>
+                                    <p>Buka kunci untuk langsung melihat solusi kode yang sudah diperbaiki beserta penjelasannya.</p>
+                                </div>
+                            </div>
+                            <button type="button" class="ios-button ios-button-secondary ios-btn-bounce" id="btn-reveal-correct-code">
+                                <i data-lucide="unlock"></i>
+                                <span>Lihat Kode Benar</span>
+                            </button>
+                        </div>
+
+                        <!-- Revealed Solution Details (Collapsed by default) -->
+                        <div class="solution-revealed-body is-hidden" id="solution-revealed-body">
+                            <div class="revealed-header">
+                                <span class="revealed-badge"><i data-lucide="check-circle-2"></i> Solusi Kode yang Benar:</span>
+                                <div class="revealed-actions">
+                                    <button type="button" class="icon-button-sm" id="btn-copy-ai-solution" title="Salin Kode Solusi">
+                                        <i data-lucide="copy"></i>
+                                    </button>
+                                    <button type="button" class="ios-button ios-button-success ios-button-sm" id="btn-apply-ai-solution">
+                                        <i data-lucide="arrow-down-left"></i>
+                                        <span>Terapkan ke Editor</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="revealed-code-box">
+                                <pre><code id="ai-revealed-code-text">// Kode benar</code></pre>
+                            </div>
+                            <div class="revealed-explanation" id="ai-revealed-explanation">
+                                <strong>Penjelasan Perbaikan:</strong>
+                                <p id="ai-explanation-text">Penjelasan</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 4: Gemini API Key Setting (Collapsible) -->
+                <div class="ai-settings-drawer">
+                    <button type="button" class="btn-text-link ai-settings-toggle" id="btn-toggle-ai-settings">
+                        <i data-lucide="settings"></i>
+                        <span>Pengaturan Google Gemini API (Opsional)</span>
+                        <i data-lucide="chevron-down" class="toggle-arrow"></i>
+                    </button>
+                    <div class="ai-settings-content is-hidden" id="ai-settings-content">
+                        <p class="settings-hint">Secara default, AI menggunakan mesin analisis bawaan tanpa kuota. Anda juga dapat menghubungkan <strong>Google Gemini API Key</strong> gratis dari <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer">Google AI Studio</a> untuk analisis berbasis LLM tingkat lanjut.</p>
+                        <div class="settings-field-group">
+                            <input type="password" id="gemini-api-key-input" class="ios-input-field" placeholder="Tempel Gemini API Key di sini (AIzaSy...)">
+                            <button type="button" class="ios-button ios-button-secondary" id="btn-save-gemini-key">Simpan Key</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert-footer">
+                <button class="ios-alert-btn cancel" id="btn-dismiss-ai-modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -849,13 +1011,14 @@ endprogram</code></pre>
     <!-- Firebase SDK (Compat v10 for direct browser use) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-config.js?v=20261115-3"></script>
-    <script src="js/cloud-db.js?v=20261115-3"></script>
-    <script src="js/audio.js?v=20261115-3"></script>
-    <script src="js/interpreter.js?v=20261115-3"></script>
-    <script src="js/go-interpreter.js?v=20261115-3"></script>
-    <script src="js/terminal.js?v=20261115-3"></script>
-    <script src="js/challenges.js?v=20261115-3"></script>
-    <script src="js/app.js?v=20261115-3"></script>
+    <script src="js/firebase-config.js?v=20261115-4"></script>
+    <script src="js/cloud-db.js?v=20261115-4"></script>
+    <script src="js/audio.js?v=20261115-4"></script>
+    <script src="js/interpreter.js?v=20261115-4"></script>
+    <script src="js/go-interpreter.js?v=20261115-4"></script>
+    <script src="js/terminal.js?v=20261115-4"></script>
+    <script src="js/challenges.js?v=20261115-4"></script>
+    <script src="js/ai-assistant.js?v=20261115-4"></script>
+    <script src="js/app.js?v=20261115-4"></script>
 </body>
 </html>
